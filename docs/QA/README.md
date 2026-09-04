@@ -1,23 +1,30 @@
-# 🗺️ Plan de Pruebas - SplitFlow
+# 💸 SplitFlow - Proyecto de Testing Manual (QA)
 
-## 1. Alcance (Scope)
-Este plan cubre las pruebas funcionales de la experiencia de usuario (UX/UI) de la aplicación **SplitFlow**, enfocándose en resolver el dolor de la división confusa de cuentas.
+ Este repositorio contiene la estrategia y documentación del ciclo de pruebas manuales realizado para **SplitFlow**, una solución digital diseñada para simplificar la gestión y división de gastos compartidos entre grupos de personas.
 
-### En Alcance (In Scope):
-* Creación de un grupo de gastos compartidos.
-* Registro de un gasto, asignando un pagador y múltiples participantes.
-* Cálculo automático de saldos y deudas cruzadas.
-* Visualización del resumen de deudas ("Quién debe a quién").
+El objetivo principal de este proyecto de testing fue garantizar la **transparencia, exactitud matemática en los balances y usabilidad** de la plataforma, transformando un proceso tradicionalmente confuso en una experiencia simple y clara.
 
-### Fuera de Alcance (Out of Scope):
-* Integración con pasarelas de pago reales (Transferencias bancarias desde la app).
-* Gestión de múltiples divisas (Monedas extranjeras).
+---
 
-## 2. Tipos de Prueba a Realizar
-* **Pruebas Funcionales:** Validación de flujos de finanzas y cálculos matemáticos.
-* **Pruebas de Usabilidad (UX):** Verificar que la interfaz sea clara, simple y transparente.
-* **Pruebas de Regresión:** Validar que los balances no se corrompan al editar o eliminar gastos.
+## 🎯 El Desafío del Negocio
+Compartir gastos (viajes, cenas, alquileres) suele volverse caótico cuando intervienen múltiples pagadores y personas que no participan de todos los consumos. SplitFlow busca responder tres preguntas clave de forma instantánea:
+* ¿Cuánto gastó el grupo en total?
+* ¿Cuánto pagó efectivamente cada integrante?
+* ¿Quién le debe a quién y el monto exacto?
 
-## 3. Entorno de Pruebas (Environment)
-* **Dispositivo:** Mobile (Android 14 / Chrome Mobile) y IOS 
-* Desktop (Windows 11 / Google Chrome).
+---
+
+## 🗂️ Documentación del Ciclo de Pruebas (Entregables)
+He estructurado el proceso de QA en tres fases clave dentro de este repositorio. Puedes navegar por cada documento haciendo clic en los siguientes enlaces:
+
+* [📋 **Plan de Pruebas (test-plan.md)**](./test-plan.md): Define el alcance de la prueba, los entornos validados (Mobile/Desktop) y la estrategia general de calidad.
+* [🧪 **Casos de Prueba (test-cases.md)**](./test-cases.md): Detalla los escenarios diseñados paso a paso, incluyendo flujos ideales de división equitativa y flujos alternativos (exclusión de participantes).
+* [📊 **Reporte de Ejecución y Bugs (test-report.md)**](./test-report.md): Muestra las métricas finales de la ejecución, el estado de los casos y el reporte detallado del bug de redondeo decimal hallado en los balances.
+
+---
+
+## 🛠️ Herramientas y Metodología
+* **Técnicas de Caja Negra:** Partición de equivalencia y análisis de valores límite (esenciales para validar los montos numéricos ingresados).
+* **Gestión de Artefactos:** Markdown directamente en GitHub para un control de versiones ágil y legible de la documentación.
+* **Entornos Probados:** Emuladores de dispositivos móviles (Chrome DevTools) y navegadores de escritorio comerciales.
+
