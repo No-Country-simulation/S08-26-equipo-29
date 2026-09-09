@@ -14,9 +14,9 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:5173")
 public class ExpenseController {
 
-    @Autowired
     private final ExpenseService expenseService;
 
+    @Autowired
     public ExpenseController(ExpenseService expenseService) {
         this.expenseService = expenseService;
     }

@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
+import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
@@ -51,9 +52,9 @@ public class GroupService {
         }
         List<Map<String, Object>> debts = new ArrayList<>();
         List<Map.Entry<String, Double>> creditors = balances.entrySet().stream().filter(entry -> entry.getValue() > 0.005)
-                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder())).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder())).collect(Collectors.toCollection(ArrayList::new));
         List<Map.Entry<String, Double>> debtors = balances.entrySet().stream().filter(entry -> entry.getValue() < -0.005)
-                .sorted(Map.Entry.comparingByValue()).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                .sorted(Map.Entry.comparingByValue()).collect(Collectors.toCollection(ArrayList::new));
         int creditorIndex = 0;
         int debtorIndex = 0;
         while (creditorIndex < creditors.size() && debtorIndex < debtors.size()) {
@@ -67,10 +68,10 @@ public class GroupService {
             if (debtor.getValue() >= -0.005) debtorIndex++;
         }
         boolean hadDebts = !debts.isEmpty();
-            List<Payment> settledPayments = paymentRepository.findByGroupIdAndStatus(groupId, "SETTLED");
-            debts.removeIf(debt -> settledPayments.stream().anyMatch(payment ->
-                payment.getDebtor().equals(debt.get("debtor")) && payment.getCreditor().equals(debt.get("creditor"))
-                    && Math.abs(payment.getAmount() - ((Number) debt.get("amount")).doubleValue()) <= 0.01));
+        List<Payment> settledPayments = paymentRepository.findByGroupIdAndStatus(groupId, "SETTLED");
+        debts.removeIf(debt -> settledPayments.stream().anyMatch(payment ->
+            payment.getDebtor().equals(debt.get("debtor")) && payment.getCreditor().equals(debt.get("creditor"))
+                && Math.abs(payment.getAmount() - ((Number) debt.get("amount")).doubleValue()) <= 0.01));
         return Map.of("balances", balances, "debts", debts, "hadDebts", hadDebts, "hasExpenses", group.getExpenses() != null && !group.getExpenses().isEmpty());
     }
 
