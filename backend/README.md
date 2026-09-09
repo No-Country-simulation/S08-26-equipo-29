@@ -17,3 +17,21 @@ Servidor backend para **SplitFlow**, desarrollado con **Java 21**, **Spring Boot
 3. Crear la base de datos en PostgreSQL:
    ```sql
    CREATE DATABASE splitflow_db;
+   ```
+
+## Endpoints principales
+
+- `GET/POST /api/groups`
+- `GET /api/groups/invite/{inviteCode}`
+- `GET/POST /api/groups/{id}/members`
+- `GET/POST /api/groups/{id}/expenses`
+- `GET /api/groups/{id}/balances`
+- `GET /api/groups/{id}/balances/{userId}/breakdown`
+- `POST /api/groups/{id}/payments`
+
+## Ejecucion y validacion
+
+```bash
+./gradlew bootRun
+./gradlew compileJava
+```

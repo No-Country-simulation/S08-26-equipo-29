@@ -38,7 +38,7 @@ URL y credenciales de la base de datos PostgreSQL.
 Clave secreta para la generación y validación de tokens JWT.
 
 Guía de Ejecución Local
-Requisitos previos: JDK 21+, Node 20+, PostgreSQL y Maven.
+Requisitos previos: JDK 21+, Node 20+ y PostgreSQL si se usa una base externa.
 
 
 # 1. Clonar el repositorio y posicionarse en la rama de desarrollo
@@ -50,10 +50,40 @@ git checkout dev
 cd backend
 cp .env.example .env
 # Completar las credenciales en el archivo .env creado
-./mvnw spring-boot:run
+./gradlew bootRun
 
 # 3. Configurar y levantar el Frontend (en una terminal paralela)
 cd ../frontend
 npm install
 cp .env.example .env
 npm run dev
+
+## Funcionalidades implementadas
+
+- Creacion de grupos con UUID anonimo persistido en el dispositivo.
+- Invitaciones por enlace y union con alias pre-cargado o nombre propio.
+- Gastos por grupo con participantes y division igualitaria o por monto.
+- Saldos netos, deudas direccionales y desglose trazable por gasto.
+- Registro de pagos y cierre total cuando todas las cuentas estan saldadas.
+
+La lista completa de endpoints se encuentra en [docs/API.md](docs/API.md).
+
+## Comandos actuales
+
+El backend usa Gradle Wrapper, no Maven:
+
+```bash
+cd backend
+./gradlew bootRun
+
+cd ../frontend
+npm install
+npm run dev
+```
+
+Para validar cambios:
+
+```bash
+cd frontend && npm run build && npm run lint
+cd ../backend && ./gradlew compileJava
+```

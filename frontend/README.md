@@ -13,3 +13,20 @@ Interfaz de usuario para **SplitFlow**, una plataforma web diseñada para gestio
 1. **Instalar dependencias:**
    ```bash
    npm install
+   npm run dev
+
+## Flujos disponibles
+
+- Home con UUID anonimo y creacion de grupos.
+- Invitacion y union por alias o nombre propio en `/join/:inviteCode`.
+- Gastos con participantes, division igualitaria o por monto especifico.
+- Saldos expandibles con desglose por gasto.
+- Deudas direccionales, confirmacion de pago y cierre total del grupo.
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run lint
+```

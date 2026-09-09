@@ -1,0 +1,36 @@
+:root {
+  /* 1. Primitivos (Valores crudos) */
+  --color-indigo-600: #315CFF;
+  --color-indigo-700: #2447C8;
+  --color-slate-50: #F6F8FB;
+  --color-slate-200: #DCE3ED;
+  --color-slate-500: #667085;
+  --color-slate-900: #172033;
+  --color-emerald-600: #159A72;
+  --color-red-600: #D94B5B;
+  --color-amber-500: #D99122;
+  --font-family-base: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --border-width-1: 1px;
+
+  /* 2. Semánticos (Roles de diseño) */
+  --color-primary: var(--color-indigo-600);
+  --color-background: var(--color-slate-50);
+  --border-color-muted: var(--color-slate-200);
+  --surface: #FFFFFF;
+  --surface-soft: #EEF3FF;
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-500);
+  --shadow-soft: 0 12px 30px rgba(23, 32, 51, 0.07);
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  /* 3. Aliases / Funcionales (Uso específico corregido sin líneas rojas) */
+  --btn-primary-bg: var(--color-primary);
+  --card-padding: var(--space-4);
+  --input-border-width: var(--border-width-1);
+  --input-border-color: var(--border-color-muted);
+}
