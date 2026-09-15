@@ -4,6 +4,9 @@ WORKDIR /app
 
 COPY . .
 
+# Agregamos esto para darle permisos de ejecución al gradlew
+RUN chmod +x gradlew
+
 RUN ./gradlew build -x test
 
 FROM eclipse-temurin:21-jre
