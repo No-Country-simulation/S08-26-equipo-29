@@ -148,7 +148,6 @@ function HomeView() {
       {!showForm && groups.length === 0 && (
         <section className="splitflow-empty-state" aria-label="No hay grupos creados">
           <header className="splitflow-header">
-            {/* <div className="splitflow-header__badge">SplitFlow</div> */}
           </header>
 
           <div className="splitflow-empty-card">
@@ -170,7 +169,7 @@ function HomeView() {
       {!showForm && groups.length > 0 && (
         <section className="splitflow-home-list" aria-label="Listado de grupos">
           <header className="splitflow-home-list__header">
-            <span className="splitflow-home-list__title">Split<span className="splitflow-highlight">Flow</span></span>
+            <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
             <div className="splitflow-avatar small">VG</div>
           </header>
 
@@ -203,6 +202,7 @@ function HomeView() {
             <button type="button" className="splitflow-primary-button full-width" onClick={() => setShowCreateForm(true)}>
               Nuevo grupo +
             </button>
+            <p>¿Tienes un código de invitación?<a className="splitflow-link-button" href="/#"> Únete a un grupo</a></p>
             <button type="button" className="splitflow-reset-button full-width" onClick={resetGroups}>
               Borrar grupos guardados
             </button>

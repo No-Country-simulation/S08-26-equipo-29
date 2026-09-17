@@ -149,13 +149,7 @@ button, input, select { font: inherit; }
   padding: 18px 20px 10px;
   font-weight: 700;
 }
-.splitflow-highlight{
-  color: var(--color-primary);
-}
-.splitflow-home-list__title {
-  font-size: 1.1rem;
-  letter-spacing: -0.03em;
-}
+
 .splitflow-link-button{
     margin-top: 10px;
     text-decoration: none;
