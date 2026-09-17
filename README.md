@@ -1,55 +1,55 @@
-SplitFlow — S08-26-equipo-29
+# SplitFlow — S08-26-equipo-29
 Plataforma digital para la gestión y división de gastos compartidos en grupos, orientada a simplificar el cálculo de deudas y las liquidaciones entre usuarios.
 
-Descripción
+## Descripción
 SplitFlow permite a grupos registrar gastos compartidos de forma sencilla y calcula automáticamente la menor cantidad de transferencias necesarias para que todos salden sus cuentas. El resultado final de esta etapa es un MVP funcional con un backend robusto en Spring Boot y una interfaz integrada en React.
 
 =============================================================
-                  EQUIPO DE TRABAJO - SPLITFLOW
+             EQUIPO DE TRABAJO - SPLITFLOW
 =============================================================
 [Rider Manrique]    --> Backend Developer 
+[Carolina Peña]     --> Frontend Developer 
+[Daniel]            --> Fullstack Developer 
 [Julián Rozo]       --> Product Designer 
 [Vanesa Gamarra]    --> UX Researcher 
 [Nathaly Maestre]   --> UX/UI Designer 
 [Felipe]            --> UX/UI Designer 
-[Abel]              --> QA Engineer 
 =============================================================
 
-Estructura del Repositorio
+## Estructura del Repositorio
 El proyecto opera bajo una arquitectura de monorepo para centralizar los componentes principales:
 
-backend/ — API REST desarrollada en Java con Spring Boot, Spring Data JPA y Spring Security (JWT).
+- `backend/` — API REST desarrollada en Java con Spring Boot, Spring Data JPA y Spring Security.
+- `frontend/` — Interfaz de usuario construida en React con Vite y Bootstrap.
+- `database/` — Esquemas relacionales y scripts de configuración en PostgreSQL.
+- `docs/` — Documentación técnica del sistema, diagramas y catálogo de entregables.
 
-frontend/ — Interfaz de usuario construida en React con Vite y Bootstrap.
+## Arquitectura y Despliegue (Deploy)
+El backend del sistema se encuentra desplegado de forma continua en **Render** utilizando un entorno contenedorizado con **Docker**.
 
-database/ — Esquemas relacionales y scripts de configuración en PostgreSQL.
+- **Contenedorización (Dockerfile):** Se configuró una imagen basada en Eclipse Temurin que empaqueta el Gradle Wrapper del proyecto. Incluye flags de optimización de red (como `-Djava.net.preferIPv4Stack=true` para garantizar estabilidad de conexiones salientes) y expone dinámicamente el puerto asignado por la plataforma (`PORT`).
+- **Hosting Backend:** [https://splitflow-backend-ckr3.onrender.com](https://splitflow-backend-ckr3.onrender.com)
+- **Base de Datos:** PostgreSQL remoto conectado de forma segura mediante variables de entorno.
 
-docs/ — Documentación técnica del sistema y catálogo de endpoints (API.md y ARCHITECTURE.md).
+## Variables de Entorno
+Por seguridad, ningún archivo `.env` que contenga credenciales reales se incluye en el control de versiones.
 
-Variables de Entorno
-Por seguridad, ningún archivo .env que contenga credenciales reales se incluye en el control de versiones.
+Cada entorno dispone de un archivo `.env.example` con la estructura de variables requeridas. Copiar el archivo como `.env` y completar los parámetros de conexión:
+- URL, usuario y contraseña de PostgreSQL (`DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD`).
+- Configuración de puerto y perfiles de Spring Boot.
 
-Cada entorno dispone de un archivo .env.example con la estructura de variables requeridas.
-
-Copiar el archivo como .env en el directorio correspondiente y completar los datos de conexión:
-
-URL y credenciales de la base de datos PostgreSQL.
-
-Clave secreta para la generación y validación de tokens JWT.
-
-Guía de Ejecución Local
+## Guía de Ejecución Local
 Requisitos previos: JDK 21+, Node 20+ y PostgreSQL si se usa una base externa.
 
-
+```bash
 # 1. Clonar el repositorio y posicionarse en la rama de desarrollo
-git clone https://github.com/No-Country-simulation/S08-26-equipo-29.git
+git clone [https://github.com/No-Country-simulation/S08-26-equipo-29.git](https://github.com/No-Country-simulation/S08-26-equipo-29.git)
 cd S08-26-equipo-29/
 git checkout dev
 
 # 2. Configurar y levantar el Backend
 cd backend
 cp .env.example .env
-# Completar las credenciales en el archivo .env creado
 ./gradlew bootRun
 
 # 3. Configurar y levantar el Frontend (en una terminal paralela)
@@ -58,32 +58,26 @@ npm install
 cp .env.example .env
 npm run dev
 
-## Funcionalidades implementadas
 
-- Creacion de grupos con UUID anonimo persistido en el dispositivo.
-- Invitaciones por enlace y union con alias pre-cargado o nombre propio.
-- Gastos por grupo con participantes y division igualitaria o por monto.
-- Saldos netos, deudas direccionales y desglose trazable por gasto.
-- Registro de pagos y cierre total cuando todas las cuentas estan saldadas.
+Funcionalidades implementadas
+Creación de grupos con UUID anónimo persistido en el dispositivo.
 
-La lista completa de endpoints se encuentra en [docs/API.md](docs/API.md).
+Invitaciones por enlace y unión con alias pre-cargado o nombre propio.
 
-## Comandos actuales
+Gastos por grupo con participantes y división igualitaria o por monto.
 
-El backend usa Gradle Wrapper, no Maven:
+Saldos netos, deudas direccionales y desglose trazable por gasto.
 
-```bash
-cd backend
-./gradlew bootRun
+Registro de pagos y cierre total cuando todas las cuentas están saldadas.
 
-cd ../frontend
-npm install
-npm run dev
-```
+La lista completa de endpoints se encuentra en la carpeta docs/.
 
-Para validar cambios:
+Comandos de Validación
+Para validar compilación y dependencias:
 
-```bash
+Bash
+# Frontend
 cd frontend && npm run build && npm run lint
-cd ../backend && ./gradlew compileJava
-```
+
+# Backend (usando Gradle Wrapper)
+cd backend && ./gradlew compileJava
