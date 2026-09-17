@@ -1,183 +1,308 @@
 .splitflow-container {
-  background-color: var(--color-background, #F6F8FB);
+  max-width: 560px;
   min-height: 100vh;
-  font-family: var(--font-family-base, sans-serif);
-  color: var(--text-primary, #172033);
-  max-width: 480px;
   margin: 0 auto;
-  padding-bottom: 2rem;
+  padding: 0 0 2rem;
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .app-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background: var(--surface, #FFFFFF);
-  border-bottom: 1px solid var(--border-color-muted, #DCE3ED);
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem 1rem;
+  margin: 0 0 0.75rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border-color-muted);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.app-header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .app-header h1 {
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
+  font-weight: 800;
 }
 
-.tabs-nav {
-  display: flex;
-  background: var(--surface, #FFFFFF);
-  padding: 0.5rem 1rem;
-  gap: 1rem;
-  border-bottom: 1px solid var(--border-color-muted, #DCE3ED);
+.eyebrow {
+  color: var(--splitflow-blue);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  font-size: 0.67rem;
 }
 
-.tab-item {
-  background: none;
-  border: none;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--text-secondary, #667085);
-  padding-bottom: 0.25rem;
-  cursor: pointer;
+.floating-action {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--splitflow-blue) 0%, var(--splitflow-violet) 100%);
+  color: white;
+  font-size: 1.6rem;
+  line-height: 1;
+  box-shadow: 0 12px 22px rgba(45, 91, 255, 0.24);
 }
 
-.tab-item.active {
-  color: var(--color-primary, #315CFF);
-  border-bottom: 2px solid var(--color-primary, #315CFF);
-}
-
-.content-body {
-  padding: 1.25rem;
+.section-title {
+  padding: 0.2rem 0.2rem 0.4rem;
 }
 
 .section-title h2 {
+  margin: 0;
   font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary, #667085);
-  margin-bottom: 1rem;
-  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--text-secondary);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.debts-list {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
 }
 
 .debt-card {
-  background: var(--surface, #FFFFFF);
-  border-radius: var(--radius-card, 16px);
-  padding: 1rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  box-shadow: var(--shadow-soft, 0 12px 30px rgba(23, 32, 51, 0.07));
-  margin-bottom: 1rem;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.05rem;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-color-muted);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.04);
 }
 
 .debt-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.8rem;
+  min-width: 0;
 }
 
 .avatar-circle {
-  width: 40px;
-  height: 40px;
-  background: var(--surface-soft, #EEF3FF);
-  color: var(--color-primary, #315CFF);
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
+  display: grid;
+  place-items: center;
+  background: rgba(45, 91, 255, 0.08);
+  color: var(--splitflow-blue);
+  font-weight: 800;
+  flex-shrink: 0;
 }
 
 .debt-main-text {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.badge-pending {
-  font-size: 0.75rem;
-  color: var(--color-amber-500, #D99122);
-  background: rgba(217, 145, 34, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+  line-height: 1.3;
 }
 
 .debt-right {
-  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-width: 148px;
 }
 
 .debt-amount {
   display: block;
-  font-weight: 700;
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.34rem 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.status-pending {
+  color: var(--splitflow-warning);
+  background: var(--splitflow-warning-soft);
+}
+
+.status-started {
+  color: var(--splitflow-blue);
+  background: #ebefff;
+}
+
+.status-paid {
+  color: var(--splitflow-success);
+  background: var(--splitflow-success-soft);
 }
 
 .btn-outline-pay {
-  background: transparent;
-  border: 1px solid var(--border-color-muted, #DCE3ED);
-  color: var(--text-primary, #172033);
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-control, 10px);
-  font-size: 0.8rem;
+  border: 1px solid rgba(45, 91, 255, 0.18);
+  background: rgba(45, 91, 255, 0.04);
+  color: var(--splitflow-blue);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 0.52rem 0.8rem;
   cursor: pointer;
 }
 
-.btn-outline-pay:hover {
-  border-color: var(--color-primary, #315CFF);
-  color: var(--color-primary, #315CFF);
+.btn-primary-soft {
+  background: rgba(109, 82, 247, 0.08);
+  border-color: rgba(109, 82, 247, 0.2);
+  color: var(--splitflow-violet);
 }
 
-/* Estilos del Modal */
+.paid-inline {
+  color: var(--splitflow-success);
+  font-size: 0.76rem;
+  font-weight: 800;
+  background: var(--splitflow-success-soft);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+}
+
+.empty-state-card {
+  text-align: center;
+  background: rgba(255,255,255,0.82);
+  border: 1px solid var(--border-color-muted);
+  border-radius: 22px;
+  padding: 2rem 1.25rem;
+  box-shadow: 0 12px 28px rgba(17,24,39,0.04);
+}
+
+.success-icon-badge {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 0.8rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--splitflow-success-soft);
+  color: var(--splitflow-success);
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.empty-state-card h3 {
+  margin: 0 0 0.55rem;
+  font-weight: 800;
+}
+
+.empty-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .modal-backdrop {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(23, 32, 51, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.44);
   padding: 1rem;
 }
 
 .modal-card {
-  background: var(--surface, #FFFFFF);
-  padding: 1.5rem;
-  border-radius: var(--radius-card, 16px);
-  width: 100%;
-  max-width: 320px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  width: min(100%, 420px);
+  padding: 1.5rem 1.35rem 1.2rem;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+  border: 1px solid var(--border-color-muted);
 }
 
 .modal-card h3 {
-  font-size: 1.1rem;
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.75rem;
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
 }
 
 .modal-card p {
-  font-size: 0.9rem;
-  color: var(--text-secondary, #667085);
-  margin-bottom: 1.5rem;
-  line-height: 1.4;
+  margin: 0 0 1.4rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-size: 0.96rem;
 }
 
 .modal-actions {
   display: flex;
-  gap: 0.75rem;
   justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .btn-secondary {
+  border: 1px solid var(--border-color-muted);
   background: transparent;
-  border: none;
-  color: var(--text-secondary, #667085);
-  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 12px;
+  padding: 0.72rem 1rem;
+  font-weight: 700;
   cursor: pointer;
-  padding: 0.5rem 1rem;
 }
 
 .btn-primary {
-  background: var(--color-primary, #315CFF);
+  border: 0;
+  background: linear-gradient(135deg, var(--splitflow-blue) 0%, var(--splitflow-violet) 100%);
   color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-control, 10px);
-  font-weight: 600;
+  border-radius: 12px;
+  padding: 0.72rem 1rem;
+  font-weight: 800;
   cursor: pointer;
+  box-shadow: 0 12px 22px rgba(45, 91, 255, 0.2);
+}
+
+@media (max-width: 640px) {
+  .splitflow-container {
+    max-width: 100%;
+    padding-inline: 0.35rem;
+  }
+
+  .app-header {
+    padding: 0.9rem 0.9rem 0.8rem;
+    border-radius: 18px;
+  }
+
+  .debt-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .debt-right {
+    width: 100%;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .modal-card {
+    padding: 1.3rem 1.1rem 1.1rem;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions > * {
+    width: 100%;
+  }
 }
