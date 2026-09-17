@@ -4,6 +4,8 @@ import DeudasView from './pages/DeudasView';
 import './pages/DeudasView.css';
 import { getGroups, createGroup, getGroupByInviteCode, getGroupMembers, joinGroup, getExpenses, createExpense, getGroupBalances, settlePayment } from './services/api';
 import GroupBalance from './components/GroupBalance';
+import Logo from '../src/public/LogoDos.svg';
+import InicioAvatar from '../src/public/Inicio.svg';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 
@@ -55,8 +57,8 @@ function HomeView() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [currency, setCurrency] = useState('COP');
-  const [aliases, setAliases] = useState([]);
-  const [aliasInput, setAliasInput] = useState('');
+  const [participants, setParticipants] = useState(['Vanessa Gamarra', 'Tú']);
+  const [participantInput, setParticipantInput] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -66,7 +68,11 @@ function HomeView() {
     setUserId(currentUserId);
 
     const storedGroups = JSON.parse(localStorage.getItem('splitflow.groups') || '[]');
-    setGroups(storedGroups);
+    if (storedGroups.length > 0) {
+      setGroups(storedGroups);
+      return;
+    }
+
     getGroups()
       .then((remoteGroups) => {
         const mergedGroups = remoteGroups.map((group) => ({ ...group, aliases: group.aliases || [] }));
@@ -81,11 +87,23 @@ function HomeView() {
     localStorage.setItem('splitflow.groups', JSON.stringify(nextGroups));
   };
 
-  const addAlias = () => {
-    const alias = aliasInput.trim();
-    if (!alias || alias.length > 40 || aliases.includes(alias)) return;
-    setAliases([...aliases, alias]);
-    setAliasInput('');
+  const resetGroups = () => {
+    localStorage.removeItem('splitflow.groups');
+    setGroups([]);
+    setShowCreateForm(true);
+  };
+
+  const addParticipant = () => {
+    const cleanName = participantInput.trim();
+    if (!cleanName || participants.includes(cleanName)) {
+      return;
+    }
+    setParticipants((currentParticipants) => [...currentParticipants, cleanName]);
+    setParticipantInput('');
+  };
+
+  const removeParticipant = (nameToRemove) => {
+    setParticipants((currentParticipants) => currentParticipants.filter((name) => name !== nameToRemove));
   };
 
   const handleCreateGroup = async (event) => {
@@ -96,91 +114,179 @@ function HomeView() {
       return;
     }
 
+    const normalizedParticipants = [...new Set(participants.filter(Boolean))];
+
     try {
-      const createdGroup = await createGroup({ name: cleanName, currency, aliases, ownerId: userId });
-      const nextGroup = { ...createdGroup, aliases, ownerId: userId };
+      const createdGroup = await createGroup({
+        name: cleanName,
+        currency,
+        aliases: normalizedParticipants,
+        ownerId: userId,
+      });
+
+      const nextGroup = {
+        ...createdGroup,
+        aliases: normalizedParticipants,
+        ownerId: userId,
+      };
+
       persistGroups([...groups, nextGroup]);
       setGroupName('');
-      setAliases([]);
+      setParticipants(['Vanessa Gamarra', 'Tú']);
       setShowCreateForm(false);
       setError('');
       navigate(`/group/${createdGroup.id}`);
     } catch {
-      setError('No pudimos crear el grupo. Revisa que el backend este activo e intenta de nuevo.');
+      setError('No pudimos crear el grupo. Revisa que el backend esté activo e intenta de nuevo.');
     }
   };
 
-  return (
-    <main className="container py-5 splitflow-shell">
-      <header className="page-header mb-5">
-        <p className="eyebrow text-uppercase text-primary fw-bold small mb-2">SplitFlow</p>
-        <h1 className="display-5 fw-bold mb-2">Tus gastos, en orden.</h1>
-        <p className="text-muted mb-0">Crea un grupo y empieza a dividir sin registros ni contrasenas.</p>
-      </header>
+  const showForm = showCreateForm;
 
-      {groups.length === 0 && !showCreateForm && (
-        <section className="card empty-state text-center">
-          <div>
-            <div className="avatar mx-auto mb-3" aria-hidden="true">+</div>
-            <h2 className="h3">Todavia no tienes grupos</h2>
-            <p className="text-muted mb-4">Tu primer grupo es el lugar para reunir gastos y participantes.</p>
-            <button className="btn btn-primary btn-lg" onClick={() => setShowCreateForm(true)}>
-              Crear mi primer grupo
+  return (
+    <main className="splitflow-home-shell">
+      {!showForm && groups.length === 0 && (
+        <section className="splitflow-empty-state" aria-label="No hay grupos creados">
+          <header className="splitflow-header">
+            {/* <div className="splitflow-header__badge">SplitFlow</div> */}
+          </header>
+
+          <div className="splitflow-empty-card">
+            <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
+            <h1 className="splitflow-title">Creá tu primer grupo</h1>
+            <p className="splitflow-subtitle">Registra gastos compartidos y entérate al instante quién le debe a quién</p>
+            <img src={InicioAvatar} alt="Ilustración de inicio" className="splitflow-Inicio" />
+            <button type="button" className="splitflow-primary-button" onClick={() => setShowCreateForm(true)}>
+              Crear mi primer grupo →
+            </button>
+            <p>¿Tienes un código de invitación?<a className="splitflow-link-button" href="/#"> Únete a un grupo</a></p>
+            <button type="button" className="splitflow-reset-button" onClick={resetGroups}>
+              Borrar grupos guardados
             </button>
           </div>
         </section>
       )}
 
-      {groups.length > 0 && !showCreateForm && (
-        <section>
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h2 className="h3 mb-0">Mis grupos</h2>
-            <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}>Crear grupo</button>
-          </div>
-          <div className="row g-3">
-            {groups.map((group) => (
-              <div className="col-md-6" key={group.id}>
-                <button className="card group-tile p-4 text-start w-100" onClick={() => navigate(`/group/${group.id}`)}>
-                  <span className="d-flex justify-content-between align-items-start gap-3"><span className="h4 d-block mb-2">{group.name}</span><span aria-hidden="true">›</span></span>
-                  <span className="text-muted">{group.currency || 'COP'} · {group.aliases?.length || 0} participantes invitados</span>
+      {!showForm && groups.length > 0 && (
+        <section className="splitflow-home-list" aria-label="Listado de grupos">
+          <header className="splitflow-home-list__header">
+            <span className="splitflow-home-list__title">Split<span className="splitflow-highlight">Flow</span></span>
+            <div className="splitflow-avatar small">VG</div>
+          </header>
+
+          <div className="splitflow-home-list__content">
+            <h2 className="splitflow-section-title">Tus grupos</h2>
+
+            <div className="splitflow-group-list">
+              {groups.map((group) => (
+                <button
+                  type="button"
+                  key={group.id}
+                  className="splitflow-group-card"
+                  onClick={() => navigate(`/group/${group.id}`)}
+                >
+                  <div className="splitflow-group-card__avatars" aria-hidden="true">
+                    <span className="splitflow-mini-avatar"></span>
+                  </div>
+                  <div className="splitflow-group-card__info">
+                    <strong>{group.name}</strong>
+                    <span>{(group.aliases?.length || 0)} miembros</span>
+                  </div>
+                  <div className="splitflow-group-card__meta">
+                    <span className="splitflow-group-card__amount">$0</span>
+                    <span className="splitflow-group-card__action">›</span>
+                  </div>
                 </button>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            <button type="button" className="splitflow-primary-button full-width" onClick={() => setShowCreateForm(true)}>
+              Nuevo grupo +
+            </button>
+            <button type="button" className="splitflow-reset-button full-width" onClick={resetGroups}>
+              Borrar grupos guardados
+            </button>
           </div>
         </section>
       )}
 
-      {showCreateForm && (
-        <section className="card p-4 shadow-sm">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h2 className="h3 mb-0">Crear grupo</h2>
-            <button className="btn-close" aria-label="Cerrar" onClick={() => setShowCreateForm(false)} />
-          </div>
-          <form onSubmit={handleCreateGroup}>
-            <label className="form-label" htmlFor="group-name">Nombre del grupo</label>
-            <input id="group-name" className="form-control mb-3" maxLength={60} value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Ej. Viaje Melgar" autoFocus />
+      {showForm && (
+        <section className="splitflow-create-form" aria-label="Formulario para crear un grupo">
+          <header className="splitflow-create-form__header">
+            <button type="button" className="splitflow-back-button" onClick={() => setShowCreateForm(false)} aria-label="Volver">
+              ←
+            </button>
+            <h2>Crear grupo</h2>
+          </header>
 
-            <label className="form-label" htmlFor="group-currency">Moneda</label>
-            <select id="group-currency" className="form-select mb-3" value={currency} onChange={(event) => setCurrency(event.target.value)}>
-              <option>COP</option><option>ARS</option><option>CLP</option><option>USD</option>
-            </select>
+          <form onSubmit={handleCreateGroup} className="splitflow-create-form__body">
+            <div className="splitflow-field">
+              <label htmlFor="group-name">Nombre del grupo</label>
+              <input
+                id="group-name"
+                type="text"
+                maxLength={60}
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+                placeholder="Ej. Familia, Cumpleaños, Camilo"
+                autoFocus
+              />
+              <span className="splitflow-counter">{groupName.length}/60</span>
+            </div>
 
-            <label className="form-label" htmlFor="group-alias">Participantes (opcional)</label>
-            <div className="input-group mb-2">
-              <input id="group-alias" className="form-control" maxLength={40} value={aliasInput} onChange={(event) => setAliasInput(event.target.value)} placeholder="Nombre o alias" />
-              <button type="button" className="btn btn-outline-primary" onClick={addAlias}>Agregar</button>
+            <div className="splitflow-field">
+              <label htmlFor="group-currency">Moneda</label>
+              <select id="group-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                <option value="COP">COP — Peso Colombiano</option>
+                <option value="USD">USD — Dólar estadounidense</option>
+                <option value="ARS">ARS — Peso argentino</option>
+                <option value="CLP">CLP — Peso chileno</option>
+              </select>
             </div>
-            <div className="d-flex flex-wrap gap-2 mb-4">
-              {aliases.map((alias) => <span className="badge text-bg-light border" key={alias}>{alias}</span>)}
+
+            <div className="splitflow-field splitflow-field--participants">
+              <label>Participantes (Opcional)</label>
+              <p>Agrega los nombres de tus amigos o familiares.</p>
+              <p>Cada uno podrá elegir el suyo cuando los invites.</p>
+
+              <div className="splitflow-participants-list">
+                {participants.map((participant) => (
+                  <div key={participant} className="splitflow-participant-chip">
+                    <span>{participant}</span>
+                    {participant !== 'Tú' && (
+                      <button type="button" onClick={() => removeParticipant(participant)} aria-label={`Quitar ${participant}`}>
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="splitflow-add-participant">
+                <input
+                  type="text"
+                  value={participantInput}
+                  onChange={(event) => setParticipantInput(event.target.value)}
+                  placeholder="Nombre del participante"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addParticipant();
+                    }
+                  }}
+                />
+                <button type="button" onClick={addParticipant}>Agregar</button>
+              </div>
             </div>
-            {error && <p className="text-danger" role="alert">{error}</p>}
-            <button className="btn btn-primary w-100" type="submit" disabled={!groupName.trim()}>Crear grupo</button>
+
+            {error && <p className="splitflow-error" role="alert">{error}</p>}
+
+            <button type="submit" className="splitflow-primary-button full-width form-submit" disabled={!groupName.trim()}>
+              Crear grupo →
+            </button>
           </form>
         </section>
       )}
-
-      <p className="text-muted small mt-4 mb-0">ID local: {userId}</p>
-      {!showCreateForm && <button className="fab btn btn-primary" aria-label="Crear grupo" title="Crear grupo" onClick={() => setShowCreateForm(true)}>+</button>}
     </main>
   );
 }

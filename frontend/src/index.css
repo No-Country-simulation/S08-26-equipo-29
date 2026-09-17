@@ -1,27 +1,437 @@
 :root {
-  --color-indigo-600: #4F46E5;
-  --color-indigo-700: #4338CA;
-  --color-slate-50: #F8FAFC;
-  --color-slate-200: #E2E8F0;
+  --color-indigo-600: #5D5FEF;
+  --color-indigo-700: #4C4DE0;
+  --color-cream-bg: #e9e1d7;
+  --color-surface: #f5f2ee;
+  --color-surface-strong: #f0ece9;
+  --color-surface-muted: #dfe6ea;
+  --color-text: #1d1f2a;
+  --color-text-soft: #6f7280;
+  --color-border: #d8d5d1;
+  --color-border-strong: #c9c3bd;
+  --color-primary: #5b5bf1;
+  --color-primary-hover: #4a4fe1;
+  --color-primary-soft: #e9ebff;
+  --color-chip-bg: #dfe5ff;
+  --color-chip-text: #2a2d3f;
   --font-family-base: 'Inter', sans-serif;
   --space-4: 1rem;
   --border-width-1: 1px;
 
-  --color-primary: var(--color-indigo-600);
-  --color-primary-hover: var(--color-indigo-700);
-  --color-background: var(--color-slate-50);
-  --border-color-muted: var(--color-slate-200);
-
+  --color-background: var(--color-cream-bg);
+  --border-color-muted: var(--color-border);
   --btn-primary-bg: var(--color-primary);
   --card-padding: var(--space-4);
-  --input-border: var(--border-width-1) solid var(--border-color-muted);
+  --input-border: var(--border-width-1) solid var(--color-border);
 }
 
+* { box-sizing: border-box; }
+
 body {
+  margin: 0;
   font-family: var(--font-family-base);
   background-color: var(--color-background);
-  color: var(--text-primary);
+  color: var(--color-text);
   min-width: 320px;
+}
+
+button, input, select { font: inherit; }
+
+#root {
+  min-height: 100vh;
+}
+
+.splitflow-home-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--color-background);
+}
+
+.splitflow-empty-state,
+.splitflow-home-list,
+.splitflow-create-form {
+  width: min(100%, 420px);
+  min-height: 760px;
+  background: white;
+  border-radius: 28px;
+  box-shadow: 0 12px 28px rgba(31, 31, 31, 0.08);
+  border: 1px solid rgba(160, 151, 144, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.splitflow-header {
+  padding: 22px 22px 0;
+}
+
+.splitflow-header__badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--color-text);
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.splitflow-empty-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 28px 48px;
+  text-align: center;
+  p{
+    padding: 20px;
+  }
+}
+
+.splitflow-title {
+  margin: 0 0 12px;
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--color-text);
+}
+
+.splitflow-subtitle {
+  margin: 0 0 22px;
+  font-size: 1rem;
+  color: var(--color-text-soft);
+}
+
+.splitflow-primary-button {
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.9rem 1.25rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 10px 25px rgba(91, 91, 241, 0.18);
+}
+
+.splitflow-reset-button {
+  border: 1px solid rgba(117, 122, 144, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--color-text-soft);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+}
+
+.splitflow-primary-button:hover {
+  transform: translateY(-1px);
+}
+
+.splitflow-primary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.splitflow-home-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 10px;
+  font-weight: 700;
+}
+.splitflow-highlight{
+  color: var(--color-primary);
+}
+.splitflow-home-list__title {
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+}
+.splitflow-link-button{
+    margin-top: 10px;
+    text-decoration: none;
+    color: var(--color-primary);
+    
+}
+.splitflow-Inicio{
+padding: 15px;
+}
+.splitflow-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #eef1ff 0%, #dfe6ff 100%);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  border: 1px solid rgba(91, 91, 241, 0.18);
+}
+
+.splitflow-home-list__content {
+  padding: 18px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.splitflow-section-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.splitflow-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.splitflow-group-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(103, 108, 140, 0.2);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.splitflow-group-card__avatars {
+  display: flex;
+  align-items: center;
+}
+
+.splitflow-mini-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #5d5fe9 0%, #494ee0 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.splitflow-group-card__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.splitflow-group-card__info strong {
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
+.splitflow-group-card__info span {
+  color: var(--color-text-soft);
+  font-size: 0.82rem;
+}
+
+.splitflow-group-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.splitflow-group-card__amount {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.splitflow-group-card__action {
+  font-size: 1.5rem;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.splitflow-create-form {
+  padding: 14px 18px 20px;
+}
+
+.splitflow-create-form__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px 12px;
+}
+
+.splitflow-create-form__header h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.splitflow-back-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 1.7rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.splitflow-create-form__body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 6px;
+}
+
+.splitflow-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.splitflow-field label {
+  font-size: 0.92rem;
+  color: var(--color-text-soft);
+  font-weight: 600;
+}
+
+.splitflow-field input,
+.splitflow-field select,
+.splitflow-add-participant input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.splitflow-field input:focus,
+.splitflow-field select:focus,
+.splitflow-add-participant input:focus {
+  border-color: rgba(91, 91, 241, 0.8);
+  box-shadow: 0 0 0 3px rgba(91, 91, 241, 0.12);
+}
+
+.splitflow-counter {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  font-size: 0.74rem;
+  color: var(--color-text-soft);
+}
+
+.splitflow-field--participants {
+  gap: 12px;
+}
+
+.splitflow-field--participants p {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.splitflow-participants-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.splitflow-participant-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-chip-text);
+  border: 1px solid rgba(91, 91, 241, 0.18);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.splitflow-participant-chip button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.splitflow-add-participant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.splitflow-add-participant input {
+  flex: 1;
+}
+
+.splitflow-add-participant button {
+  min-height: 48px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.splitflow-error {
+  margin: 0;
+  color: #b22234;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.form-submit {
+  margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+  .splitflow-home-shell {
+    padding: 12px;
+  }
+
+  .splitflow-empty-state,
+  .splitflow-home-list,
+  .splitflow-create-form {
+    min-height: 680px;
+  }
+
+  .splitflow-group-card {
+    padding: 12px 10px;
+  }
 }
 
 .card {
