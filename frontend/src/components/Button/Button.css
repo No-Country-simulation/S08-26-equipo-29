@@ -1,0 +1,78 @@
+@import '../tokens.css';
+
+.sf-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sf-space-2);
+  box-sizing: border-box;
+  border-radius: var(--sf-radius-full);
+  border: var(--sf-stroke-md) solid transparent;
+  font-family: var(--sf-font-family);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.sf-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.sf-button:disabled {
+  cursor: not-allowed;
+}
+
+.sf-button--medium {
+  height: 56px;
+  padding: 0 var(--sf-space-6);
+  font-size: 1rem;
+}
+
+.sf-button--small {
+  height: 40px;
+  padding: 0 var(--sf-space-4);
+  font-size: 0.9375rem;
+}
+
+.sf-button--primary {
+  background: var(--sf-color-action-primary);
+  color: var(--sf-color-text-inverse);
+}
+
+.sf-button--primary:disabled {
+  background: var(--sf-color-action-disabled);
+  color: var(--sf-color-text-disabled);
+}
+
+.sf-button--secondary {
+  background: var(--sf-color-action-secondary);
+  color: var(--sf-color-action-primary);
+  border-color: var(--sf-color-border-secondary);
+}
+
+.sf-button--secondary:disabled {
+  background: var(--sf-color-action-secondary);
+  color: var(--sf-color-text-disabled);
+  border-color: var(--sf-color-border-disabled);
+}
+
+.sf-button--ghost {
+  background: transparent;
+  color: var(--sf-color-action-primary);
+}
+
+.sf-button--ghost:disabled {
+  color: var(--sf-color-text-disabled);
+}
+
+.sf-button__icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.sf-button--medium .sf-button__icon {
+  width: 24px;
+  height: 24px;
+}

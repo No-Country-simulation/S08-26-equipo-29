@@ -1,0 +1,75 @@
+@import '../tokens.css';
+
+.sf-participant-card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: var(--sf-radius-lg);
+  background: var(--sf-color-action-secondary);
+  font-family: var(--sf-font-family);
+  overflow: hidden;
+}
+
+.sf-participant-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sf-space-4);
+  padding: var(--sf-space-4);
+  border-bottom: var(--sf-stroke-sm) solid var(--sf-color-border-disabled);
+}
+
+.sf-participant-card__row:last-child {
+  border-bottom: none;
+}
+
+.sf-participant-card__row--add {
+  justify-content: flex-start;
+}
+
+.sf-participant-card__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--sf-color-text-primary);
+}
+
+.sf-participant-card__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--sf-color-text-primary);
+}
+
+.sf-participant-card__input::placeholder {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-participant-card__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sf-radius-full);
+  background: var(--sf-color-text-muted);
+  color: var(--sf-color-surface);
+  cursor: pointer;
+}
+
+.sf-participant-card__remove svg {
+  width: 12px;
+  height: 12px;
+}
