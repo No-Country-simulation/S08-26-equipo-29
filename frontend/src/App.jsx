@@ -7,6 +7,7 @@ import { getGroups, createGroup, getGroupByInviteCode, getGroupMembers, joinGrou
 import GroupBalance from './components/GroupBalance';
 import Logo from '../src/public/LogoDos.svg';
 import InicioAvatar from '../src/public/Inicio.svg';
+import SplashImage from '../src/public/splash.png';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 
@@ -700,11 +701,32 @@ function JoinGroupView() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [isLeavingSplash, setIsLeavingSplash] = useState(false);
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setIsLeavingSplash(true), 1200);
+    const hideTimer = setTimeout(() => setShowSplash(false), 1800);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
+
   return (
-    <Routes>
-      <Route path="/" element={<HomeView />} />
-      <Route path="/group/:id" element={<GroupView />} />
-      <Route path="/join/:inviteCode" element={<JoinGroupView />} />
-    </Routes>
+    <>
+      {showSplash && (
+        <div className={`splitflow-splash-screen ${isLeavingSplash ? 'is-leaving' : ''}`} aria-live="polite">
+          <img src={SplashImage} alt="SplitFlow splash" className="splitflow-splash-image" />
+        </div>
+      )}
+
+      <Routes>
+        <Route path="/" element={<HomeView />} />
+        <Route path="/group/:id" element={<GroupView />} />
+        <Route path="/join/:inviteCode" element={<JoinGroupView />} />
+      </Routes>
+    </>
   );
 }

@@ -41,6 +41,37 @@ button, input, select { font: inherit; }
   min-height: 100vh;
 }
 
+.splitflow-splash-screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #342f9a 0%, #4c3ec7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 9999;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.8s ease, visibility 0.8s ease, transform 0.8s ease;
+}
+
+.splitflow-splash-screen.is-leaving {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.04);
+}
+
+.splitflow-splash-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: auto;
+}
+
 .splitflow-home-shell {
   min-height: 100vh;
   display: flex;
