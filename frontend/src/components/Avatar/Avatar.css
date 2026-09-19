@@ -1,0 +1,54 @@
+@import '../tokens.css';
+
+.sf-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: var(--sf-radius-full);
+  background: var(--sf-color-surface-info);
+  overflow: hidden;
+  font-family: var(--sf-font-family);
+  font-weight: 700;
+  color: var(--sf-color-action-primary);
+}
+
+.sf-avatar--large {
+  width: 48px;
+  height: 48px;
+  font-size: 1rem;
+  border: var(--sf-stroke-md) solid;
+}
+
+.sf-avatar--medium {
+  width: 32px;
+  height: 32px;
+  font-size: 0.75rem;
+  border: var(--sf-stroke-sm) solid;
+}
+
+.sf-avatar--small {
+  width: 28px;
+  height: 28px;
+  font-size: 0.6875rem;
+  border: var(--sf-stroke-sm) solid;
+}
+
+.sf-avatar--ring-indigo {
+  border-color: var(--sf-color-border-primary);
+}
+
+.sf-avatar--ring-white {
+  border-color: var(--sf-color-surface);
+}
+
+.sf-avatar--ring-none {
+  border-color: transparent;
+}
+
+.sf-avatar__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

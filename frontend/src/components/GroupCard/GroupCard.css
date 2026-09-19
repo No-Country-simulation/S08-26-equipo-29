@@ -1,0 +1,67 @@
+@import '../tokens.css';
+
+.sf-group-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-3);
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--sf-space-6) var(--sf-space-4);
+  border: none;
+  border-radius: var(--sf-radius-md);
+  background: var(--sf-color-surface-info);
+  font-family: var(--sf-font-family);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sf-group-card:disabled {
+  cursor: default;
+}
+
+.sf-group-card__status {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.sf-group-card__status--paid {
+  color: var(--sf-color-text-info);
+}
+
+.sf-group-card__status--pending {
+  color: var(--sf-color-text-error);
+}
+
+.sf-group-card__avatars {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.sf-group-card__avatar {
+  margin-left: -8px;
+}
+
+.sf-group-card__avatar:first-child {
+  margin-left: 0;
+}
+
+.sf-group-card__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--sf-color-text-primary);
+}
+
+.sf-group-card__chevron {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--sf-color-action-primary);
+}
