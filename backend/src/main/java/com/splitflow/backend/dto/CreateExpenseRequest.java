@@ -3,13 +3,35 @@ package com.splitflow.backend.dto;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public class CreateExpenseRequest {
+    @NotBlank(message = "La descripción es obligatoria")
+    @Size(max = 80, message = "La descripción no puede superar 80 caracteres")
     private String description;
+
+    @NotNull(message = "El monto es obligatorio")
+    @Positive(message = "El monto debe ser mayor a $0")
     private Double amount;
+
+    @NotBlank(message = "El pagador es obligatorio")
     private String paidBy;
+
+    @PastOrPresent(message = "La fecha no puede ser futura")
     private LocalDate expenseDate;
+
+    @NotEmpty(message = "Debes seleccionar al menos un participante")
+    @Size(max = 50, message = "No puedes seleccionar más de 50 participantes")
     private List<String> participants;
+
+    @Pattern(regexp = "EQUAL|BY_AMOUNT", flags = Pattern.Flag.CASE_INSENSITIVE,
+            message = "El método de división debe ser EQUAL o BY_AMOUNT")
     private String splitMethod;
     private Map<String, Double> allocations;
 

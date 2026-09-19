@@ -6,10 +6,14 @@ import com.splitflow.backend.repository.GroupMemberRepository;
 import com.splitflow.backend.model.GroupMember;
 import com.splitflow.backend.model.Payment;
 import com.splitflow.backend.dto.JoinGroupRequest;
+import com.splitflow.backend.dto.CreateGroupRequest;
+import com.splitflow.backend.dto.SettlePaymentRequest;
 import com.splitflow.backend.repository.PaymentRepository;
 import com.splitflow.backend.repository.ExpenseRepository;
 import com.splitflow.backend.repository.ExpenseSplitRepository;
 import com.splitflow.backend.service.GroupService;
+import com.splitflow.backend.exception.ResourceNotFoundException;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +26,6 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/groups")
-@CrossOrigin(origins = "http://localhost:5173")
 public class GroupController {
 
     @Autowired
@@ -49,7 +52,10 @@ public class GroupController {
     }
 
     @PostMapping
-    public Group createGroup(@RequestBody Group group) {
+    public Group createGroup(@Valid @RequestBody CreateGroupRequest request) {
+        Group group = new Group(request.getName().trim(), request.getCurrency(), null);
+        group.setAliases(request.getAliases());
+        group.setOwnerId(request.getOwnerId());
         if (group.getInviteCode() == null || group.getInviteCode().isEmpty()) {
             String randomCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
             group.setInviteCode(randomCode);
@@ -68,7 +74,7 @@ public class GroupController {
     @GetMapping("/invite/{inviteCode}")
     public Group getGroupByInviteCode(@PathVariable String inviteCode) {
         return groupRepository.findByInviteCode(inviteCode)
-                .orElseThrow(() -> new RuntimeException("Grupo no encontrado con el código: " + inviteCode));
+            .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado con el código: " + inviteCode));
     }
 
     @GetMapping("/{id}/members")
@@ -77,15 +83,12 @@ public class GroupController {
     }
 
     @PostMapping("/{id}/members")
-    public ResponseEntity<?> joinGroup(@PathVariable Long id, @RequestBody JoinGroupRequest request) {
-        if (request.getAlias() == null || request.getAlias().trim().isEmpty()) {
-            return ResponseEntity.badRequest().body("Debes ingresar un nombre para unirte");
-        }
+    public ResponseEntity<?> joinGroup(@PathVariable Long id, @Valid @RequestBody JoinGroupRequest request) {
         if (request.getAlias().trim().length() > 40) {
-            return ResponseEntity.badRequest().body("El nombre no puede superar 40 caracteres");
+            throw new IllegalArgumentException("El nombre no puede superar 40 caracteres");
         }
         if (groupMemberRepository.countByGroupId(id) >= 50) {
-            return ResponseEntity.badRequest().body("Este grupo ya alcanzo el limite de 50 participantes");
+            throw new IllegalArgumentException("Este grupo ya alcanzo el limite de 50 participantes");
         }
         var pendingAlias = groupMemberRepository.findByGroupIdAndAliasAndActiveFalse(id, request.getAlias().trim());
         if (pendingAlias.isPresent()) {
@@ -96,10 +99,10 @@ public class GroupController {
             return ResponseEntity.ok(groupMemberRepository.save(member));
         }
         if (groupMemberRepository.existsByGroupIdAndAliasIgnoreCase(id, request.getAlias().trim())) {
-            return ResponseEntity.badRequest().body("Ya hay alguien con ese nombre en el grupo. Elige otro.");
+            throw new IllegalArgumentException("Ya hay alguien con ese nombre en el grupo. Elige otro.");
         }
         Group group = groupRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Grupo no encontrado"));
+            .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
         GroupMember member = new GroupMember(request.getAlias().trim(), request.getDeviceId(), true, group);
         member.setEmail(request.getEmail());
         return ResponseEntity.ok(groupMemberRepository.save(member));
@@ -128,13 +131,11 @@ public class GroupController {
     }
 
     @PostMapping("/{id}/payments")
-    public ResponseEntity<?> settlePayment(@PathVariable Long id, @RequestBody Payment payment) {
-        if (payment.getDebtor() == null || payment.getCreditor() == null || payment.getAmount() == null || payment.getAmount() <= 0) {
-            return ResponseEntity.badRequest().body("La deuda a saldar no es valida");
+    public ResponseEntity<?> settlePayment(@PathVariable Long id, @Valid @RequestBody SettlePaymentRequest request) {
+        if (!groupService.isPendingDebt(id, request.getDebtor(), request.getCreditor(), request.getAmount())) {
+            throw new IllegalArgumentException("La deuda indicada no esta pendiente en este grupo");
         }
-        if (!groupService.isPendingDebt(id, payment.getDebtor(), payment.getCreditor(), payment.getAmount())) {
-            return ResponseEntity.badRequest().body("La deuda indicada no esta pendiente en este grupo");
-        }
+        Payment payment = new Payment(id, request.getDebtor(), request.getCreditor(), request.getAmount());
         payment.setStatus("SETTLED");
         payment.setGroupId(id);
         return ResponseEntity.ok(paymentRepository.save(payment));
