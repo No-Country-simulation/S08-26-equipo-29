@@ -110,15 +110,16 @@ public class GroupController {
 
     @DeleteMapping("/{id}/members/{memberId}")
     public ResponseEntity<?> removeMember(@PathVariable Long id, @PathVariable Long memberId) {
-        GroupMember member = groupMemberRepository.findById(memberId).orElse(null);
-        if (member == null || !member.getGroup().getId().equals(id)) {
-            return ResponseEntity.notFound().build();
+        GroupMember member = groupMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Miembro no encontrado"));
+        if (!member.getGroup().getId().equals(id)) {
+            throw new ResourceNotFoundException("Miembro no encontrado");
         }
         boolean hasActivity = expenseRepository.findByGroupId(id).stream()
                 .anyMatch(expense -> member.getAlias().equalsIgnoreCase(expense.getPaidBy())
                         || expense.getSplits().stream().anyMatch(split -> member.getAlias().equalsIgnoreCase(split.getParticipant())));
         if (hasActivity) {
-            return ResponseEntity.badRequest().body("No se puede expulsar a un miembro con gastos o saldos asignados");
+            throw new IllegalArgumentException("No se puede expulsar a un miembro con gastos o saldos asignados");
         }
         groupMemberRepository.delete(member);
         return ResponseEntity.noContent().build();
