@@ -42,6 +42,14 @@ export const joinGroup = async (groupId, memberData) => {
     return parseResponse(response);
 };
 
+export const removeMember = async (groupId, memberId) => {
+    const response = await fetch(`${API_URL}/groups/${groupId}/members/${memberId}`, {
+        method: 'DELETE',
+    });
+    if (response.status === 204) return true;
+    return parseResponse(response);
+};
+
 // Usuarios
 export const getUsers = async () => {
     const response = await fetch(`${API_URL}/users`);
