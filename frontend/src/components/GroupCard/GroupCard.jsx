@@ -34,7 +34,7 @@ const ChevronRightIcon = () => (
 
 const GroupCard = ({
   name,
-  status = 'paid',
+  status,
   members = [],
   maxAvatars = 3,
   onClick,
@@ -53,9 +53,11 @@ const GroupCard = ({
       onClick={onClick}
       {...rest}
     >
-      <span className={`sf-group-card__status sf-group-card__status--${status}`}>
-        {status === 'paid' ? <CheckCircleIcon /> : <WarningTriangleIcon />}
-      </span>
+      {status && (
+        <span className={`sf-group-card__status sf-group-card__status--${status}`}>
+          {status === 'paid' ? <CheckCircleIcon /> : <WarningTriangleIcon />}
+        </span>
+      )}
       <span className="sf-group-card__avatars">
         {visibleMembers.map((member, index) => (
           <Avatar

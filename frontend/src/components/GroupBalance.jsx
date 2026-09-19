@@ -1,27 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getBalanceBreakdown, getGroupBalances, settlePayment } from '../services/api';
+import Button from './Button';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 const formatAmount = (amount) => `$${Number(amount).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const GroupBalance = ({ groupId, refreshKey = 0, view = 'saldos' }) => {
+const SKELETON_ROW_WIDTHS = [72, 55, 64, 48];
+const SKELETON_SHOW_DELAY = 200;
+const SLOW_LOAD_HINT_DELAY = 5000;
+
+const GroupBalance = ({ groupId, refreshKey = 0, view = 'saldos', onRegisterExpense }) => {
   const [summary, setSummary] = useState({ balances: {}, debts: [] });
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false);
+  const [slowLoad, setSlowLoad] = useState(false);
   const [expandedMember, setExpandedMember] = useState(null);
   const [breakdown, setBreakdown] = useState({});
   const [message, setMessage] = useState('');
   const [paymentToConfirm, setPaymentToConfirm] = useState(null);
+  const timersRef = useRef([]);
+
+  const clearTimers = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  };
 
   const loadBalances = () => {
     setLoading(true);
+    setShowSkeleton(false);
+    setSlowLoad(false);
+    clearTimers();
+    timersRef.current = [
+      setTimeout(() => setShowSkeleton(true), SKELETON_SHOW_DELAY),
+      setTimeout(() => setSlowLoad(true), SLOW_LOAD_HINT_DELAY),
+    ];
+
     getGroupBalances(groupId)
       .then((data) => setSummary(data))
       .catch((err) => console.error('Error al cargar los balances:', err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimers();
+        setLoading(false);
+        setShowSkeleton(false);
+        setSlowLoad(false);
+      });
   };
 
   useEffect(() => {
     loadBalances();
+    return clearTimers;
   }, [groupId, refreshKey]);
 
   const toggleBreakdown = async (member) => {
@@ -49,13 +76,44 @@ const GroupBalance = ({ groupId, refreshKey = 0, view = 'saldos' }) => {
     }
   };
 
-  if (loading) return <p>Calculando saldos y deudas...</p>;
+  if (loading) {
+    if (!showSkeleton) return null;
+    return (
+      <div className="balances-skeleton" aria-busy="true" aria-live="polite">
+        {SKELETON_ROW_WIDTHS.map((width, row) => (
+          <div key={row} className="balances-skeleton__row">
+            <span className="balances-skeleton__row-start">
+              <span className="balances-skeleton__pulse balances-skeleton__avatar" />
+              <span className="balances-skeleton__pulse balances-skeleton__name-line" style={{ width: `${width}%` }} />
+            </span>
+            <span className="balances-skeleton__pulse balances-skeleton__amount-line" />
+          </div>
+        ))}
+        <p className="balances-skeleton__caption">
+          {slowLoad ? 'Esto está tardando más de lo esperado…' : 'Cargando saldos...'}
+        </p>
+      </div>
+    );
+  }
 
   const balanceEntries = Object.entries(summary.balances || {});
   const debts = summary.debts || [];
   
   if (!summary.hasExpenses) {
-    return <p className="text-muted">Todavía no hay saldos - registra el primer gasto para ver cuánto corresponde a cada persona</p>;
+    return (
+      <div className="balances-empty text-center" role="status">
+        <div className="balances-empty__illustration" aria-hidden="true">
+          <span className="balances-empty__circle balances-empty__circle--solid" />
+          <span className="balances-empty__circle balances-empty__circle--outline" />
+          <span className="balances-empty__circle balances-empty__circle--muted" />
+        </div>
+        <h3 className="mb-2">Todavía no hay saldos</h3>
+        <p className="text-muted mb-4">Registra el primer gasto para ver cuánto corresponde a cada persona.</p>
+        {onRegisterExpense && (
+          <Button variant="primary" onClick={onRegisterExpense}>+ Registrar gasto</Button>
+        )}
+      </div>
+    );
   }
   
   if (view === 'deudas' && summary.hadDebts && debts.length === 0) {
