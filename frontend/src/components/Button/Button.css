@@ -6,6 +6,7 @@
   justify-content: center;
   gap: var(--sf-space-2);
   box-sizing: border-box;
+  flex-shrink: 0;
   border-radius: var(--sf-radius-full);
   border: var(--sf-stroke-md) solid transparent;
   font-family: var(--sf-font-family);
