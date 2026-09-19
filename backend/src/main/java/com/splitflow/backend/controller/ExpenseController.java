@@ -3,6 +3,7 @@ package com.splitflow.backend.controller;
 import com.splitflow.backend.model.Expense;
 import com.splitflow.backend.dto.CreateExpenseRequest;
 import com.splitflow.backend.service.ExpenseService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +12,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:5173")
 public class ExpenseController {
 
     private final ExpenseService expenseService;
@@ -32,11 +32,7 @@ public class ExpenseController {
     }
 
     @PostMapping("/groups/{groupId}/expenses")
-    public ResponseEntity<?> createExpense(@PathVariable Long groupId, @RequestBody CreateExpenseRequest request) {
-        try {
-            return ResponseEntity.ok(expenseService.create(groupId, request));
-        } catch (IllegalArgumentException exception) {
-            return ResponseEntity.badRequest().body(exception.getMessage());
-        }
+    public ResponseEntity<?> createExpense(@PathVariable Long groupId, @Valid @RequestBody CreateExpenseRequest request) {
+        return ResponseEntity.ok(expenseService.create(groupId, request));
     }
 }

@@ -6,6 +6,7 @@ import com.splitflow.backend.model.ExpenseSplit;
 import com.splitflow.backend.model.Group;
 import com.splitflow.backend.model.GroupMember;
 import com.splitflow.backend.model.SplitMethod;
+import com.splitflow.backend.exception.ResourceNotFoundException;
 import com.splitflow.backend.repository.ExpenseRepository;
 import com.splitflow.backend.repository.GroupMemberRepository;
 import com.splitflow.backend.repository.GroupRepository;
@@ -53,7 +54,7 @@ public class ExpenseService {
     public Expense create(Long groupId, CreateExpenseRequest request) {
         validateBasicFields(request);
         Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("Grupo no encontrado"));
+            .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
 
         SplitMethod method = parseMethod(request.getSplitMethod());
         Map<String, GroupMember> activeMembers = memberRepository.findByGroupId(groupId).stream()

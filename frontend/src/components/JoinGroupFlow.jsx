@@ -50,16 +50,26 @@ export default function JoinGroupFlow({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const alias = selectedAlias || customAlias.trim();
+    const alias = (selectedAlias || customAlias).trim();
 
     if (!alias) {
       setError('Debes elegir un nombre o escribir el tuyo.');
       return;
     }
 
+    if (alias.length > 40) {
+      setError('El nombre no puede superar los 40 caracteres.');
+      return;
+    }
+
     try {
       setError('');
-      await onJoin(alias);
+      // Enviamos el DTO estructurado que espera el backend (JoinGroupRequest)
+      await onJoin({
+        alias: alias,
+        deviceId: null,
+        email: null
+      });
     } catch (joinError) {
       setError(joinError.message || 'No pudimos confirmar tu ingreso.');
     }
@@ -83,7 +93,7 @@ export default function JoinGroupFlow({
               <span className="join-flow__eyebrow">Invitación</span>
             </div>
 
-            <h1 className="join-flow__title">Únete a {group.name}</h1>
+            <h1 className="join-flow__title">Únete a {group?.name || 'al grupo'}</h1>
             <p className="join-flow__subtitle">Mira el código QR o comparte este enlace con el grupo.</p>
 
             <div className="join-flow__qr-card">
@@ -123,17 +133,17 @@ export default function JoinGroupFlow({
                   >
                     <span className="join-flow__option-copy">
                       <strong>{alias}</strong>
-                      {/* <small>Participante invitado</small> */}
                     </span>
                     <input
                       type="radio"
                       name="identity"
                       value={alias}
                       checked={selectedAlias === alias}
-                      onChange={(event) => setSelectedAlias(event.target.value)}
+                      onChange={(event) => {
+                        setSelectedAlias(event.target.value);
+                        setCustomAlias('');
+                      }}
                     />
-                    {/* <span className="join-flow__avatar">{initials(alias)}</span> */}
-                    
                   </label>
                 ))}
               </div>
@@ -146,7 +156,11 @@ export default function JoinGroupFlow({
                   id="custom-alias"
                   type="text"
                   value={customAlias}
-                  onChange={(event) => setCustomAlias(event.target.value)}
+                  maxLength={40}
+                  onChange={(event) => {
+                    setCustomAlias(event.target.value);
+                    setSelectedAlias('');
+                  }}
                   placeholder="Ej. Carlos"
                   autoFocus
                 />

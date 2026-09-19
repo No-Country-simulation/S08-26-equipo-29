@@ -1,9 +1,10 @@
-const API_URL = 'http://localhost:8080/api';
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api`;
 
 const parseResponse = async (response) => {
     const body = await response.json().catch(() => null);
     if (!response.ok) {
-        throw new Error(typeof body === 'string' ? body : `La solicitud fallo (${response.status})`);
+        const message = typeof body === 'string' ? body : body?.message;
+        throw new Error(message || `La solicitud fallo (${response.status})`);
     }
     return body;
 };
