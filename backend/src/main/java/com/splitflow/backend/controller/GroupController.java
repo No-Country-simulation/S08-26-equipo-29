@@ -108,6 +108,23 @@ public class GroupController {
         return ResponseEntity.ok(groupMemberRepository.save(member));
     }
 
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ResponseEntity<?> removeMember(@PathVariable Long id, @PathVariable Long memberId) {
+        GroupMember member = groupMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Miembro no encontrado"));
+        if (!member.getGroup().getId().equals(id)) {
+            throw new ResourceNotFoundException("Miembro no encontrado");
+        }
+        boolean hasActivity = expenseRepository.findByGroupId(id).stream()
+                .anyMatch(expense -> member.getAlias().equalsIgnoreCase(expense.getPaidBy())
+                        || expense.getSplits().stream().anyMatch(split -> member.getAlias().equalsIgnoreCase(split.getParticipant())));
+        if (hasActivity) {
+            throw new IllegalArgumentException("No se puede expulsar a un miembro con gastos o saldos asignados");
+        }
+        groupMemberRepository.delete(member);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{id}/balances")
     public ResponseEntity<?> getGroupBalances(@PathVariable Long id) {
         // Llamamos al servicio para obtener los saldos procesados
