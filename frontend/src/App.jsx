@@ -203,8 +203,8 @@ function HomeView() {
       setShowCreateForm(false);
       setError('');
       navigate(`/group/${createdGroup.id}`);
-    } catch {
-      setError('No pudimos crear el grupo. Revisa que el backend esté activo e intenta de nuevo.');
+    } catch (createError) {
+      setError(createError.message || 'No pudimos crear el grupo. Intenta de nuevo.');
     }
   };
 

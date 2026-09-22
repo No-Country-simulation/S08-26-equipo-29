@@ -1,4 +1,6 @@
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api`;
+const backendUrl = import.meta.env.VITE_API_URL
+    || (import.meta.env.DEV ? 'http://localhost:8080' : 'https://splitflow-backend-ckr3.onrender.com');
+const API_URL = `${backendUrl.replace(/\/$/, '')}/api`;
 
 const parseResponse = async (response) => {
     const body = await response.json().catch(() => null);
