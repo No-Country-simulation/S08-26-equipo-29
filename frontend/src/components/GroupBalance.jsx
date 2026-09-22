@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getBalanceBreakdown, getGroupBalances, settlePayment } from '../services/api';
 import Button from './Button';
+import SinSaldos from '../public/sinsaldos.svg';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 const formatAmount = (amount) => `$${Number(amount).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -102,11 +103,7 @@ const GroupBalance = ({ groupId, refreshKey = 0, view = 'saldos', onRegisterExpe
   if (!summary.hasExpenses) {
     return (
       <div className="balances-empty text-center" role="status">
-        <div className="balances-empty__illustration" aria-hidden="true">
-          <span className="balances-empty__circle balances-empty__circle--solid" />
-          <span className="balances-empty__circle balances-empty__circle--outline" />
-          <span className="balances-empty__circle balances-empty__circle--muted" />
-        </div>
+        <img src={SinSaldos} alt="Ilustración de saldos" className="mb-3" />
         <h3 className="mb-2">Todavía no hay saldos</h3>
         <p className="text-muted mb-4">Registra el primer gasto para ver cuánto corresponde a cada persona.</p>
         {onRegisterExpense && (

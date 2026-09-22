@@ -12,6 +12,7 @@ import ParticipantCard from './components/ParticipantCard';
 import SegmentedControl from './components/SegmentedControl';
 import Logo from '../src/public/LogoDos.svg';
 import InicioAvatar from '../src/public/Inicio.svg';
+import SinGastos from '../src/public/sinGastos.svg';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 
@@ -647,7 +648,10 @@ function GroupView() {
 
             <div className="expense-list">
               {expenses.length === 0 ? (
-                <div className="text-center text-secondary py-4">Este grupo todavía no tiene gastos.<br />Registra el primer gasto.</div>
+                <div className="text-center text-secondary py-4">
+                  <img src={SinGastos} alt="Ilustración de gastos" />
+                  Este grupo todavía<br /><span className="splitflow-link-button">no tiene gastos</span>
+                  <p>Registra el primero y los participantes sabrán cuánto le corresponde a cada uno.</p></div>
               ) : (
                 expenses.map((ex) => {
                   const mySplit = ex.splits?.find((split) => split.participant === myAlias);
