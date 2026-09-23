@@ -2,25 +2,98 @@
 
 ## Módulo: Gestión de Gastos y Balances
 
-### CP-001: Registro exitoso de gasto con división equitativa
-* **Descripción:** Validar que un gasto se divida en partes iguales entre todos los miembros seleccionados.
-* **Precondiciones:** Existe un grupo creado ("Viaje de Amigos") con 4 integrantes (Ana, Ben, Cris, Dani).
-* **Pasos:**
-  1. Hacer clic en "Agregar Gasto".
-  2. Ingresar Monto: `$4000`, Concepto: `Supermercado`.
-  3. Seleccionar como Pagador a: `Ana`.
-  4. Seleccionar Participantes: `Todos` (Ana, Ben, Cris, Dani).
-  5. Presionar "Guardar".
-* **Resultado Esperado:** El sistema calcula que a cada participante le corresponden `$1000`. El balance muestra que Ben, Cris y Dani le deben `$1000` cada uno a Ana.
+Casos de Prueba QA
+Descripción
 
-### CP-002: Registro de gasto con exclusión de un participante
-* **Descripción:** Validar que un integrante que no participó de un consumo no sea incluido en la deuda de ese gasto específico.
-* **Precondiciones:** Grupo con 3 integrantes (Ana, Ben, Cris).
-* **Pasos:**
-  1. Hacer clic en "Agregar Gasto".
-  2. Ingresar Monto: `$3000`, Concepto: `Cena (Cris no asistió)`.
-  3. Seleccionar como Pagador a: `Ana`.
-  4. Seleccionar Participantes: `Ana` y `Ben` (Desmarcar a Cris).
-  5. Presionar "Guardar".
-* **Resultado Esperado:** El sistema calcula una división de `$1500` por persona. El balance muestra que Ben le debe `$1500` a Ana. La deuda de Cris con Ana por este concepto se mantiene en `$0`.
+Este documento contiene el relevamiento y ejecución de los casos de prueba realizados sobre la aplicación, con foco inicial en el módulo de Creación de grupo e invitación de participantes y funcionalidades relacionadas con el registro y división de gastos.
+
+Los casos de prueba tienen como objetivo validar el comportamiento funcional de la aplicación, detectar desvíos respecto de los requerimientos definidos y registrar las incidencias encontradas durante la ejecución.
+
+Estado de ejecución
+Estado	Cantidad
+Casos ejecutados	6
+Casos pendientes	5
+Total de casos planificados	11
+Casos ejecutados
+ID	Caso de prueba	Resultado
+CP-001	Creación de grupo sin registro	❌ Falló
+CP-002	Agregar participante como alias sin reclamar	❌ Falló
+CP-003	Unirse a un grupo mediante código de invitación	❌ Falló
+CP-004	Código de invitación inválido	❌ Falló
+CP-005	Registro de gasto con división equitativa	❌ Falló
+CP-006	Registro de gasto con exclusión de un participante	❌ Falló
+Casos pendientes
+
+Quedan 5 casos de prueba pendientes de ejecución. Se irán incorporando los resultados y las incidencias correspondientes a medida que avance la ejecución.
+
+Evidencias y resultados
+
+Los casos de prueba completos, incluyendo:
+
+Descripción.
+
+Precondiciones.
+
+Pasos para la reproducción.
+
+Resultado esperado.
+
+Resultado obtenido.
+
+Estado de ejecución.
+
+Observaciones e incidencias.
+
+se encuentran documentados en el siguiente Google Sheet:
+
+📊 Casos de prueba QA:
+[https://docs.google.com/spreadsheets/d/1TtbFh83YKn_LwRwaYkOjst00QLZ7CVmYvsNL2etfdgA/edit?usp=sharing]
+
+Incidencias encontradas
+
+Durante la ejecución se detectaron diferentes desvíos funcionales, entre ellos:
+
+El grupo puede crearse con un nombre diferente al ingresado.
+
+El usuario creador no queda registrado correctamente como participante.
+
+Al agregar participantes como alias, se solicita información no contemplada en el flujo, como el correo electrónico.
+
+Los participantes pueden aparecer con un estado diferente al esperado.
+
+El flujo para unirse mediante código de invitación presenta errores.
+
+No es posible acceder correctamente al flujo de validación de códigos inválidos.
+
+La división equitativa de gastos no contempla correctamente a todos los participantes.
+
+Los participantes en estado "sin reclamar" no pueden ser seleccionados correctamente para determinados gastos.
+
+Las incidencias detalladas se encuentran documentadas junto con los casos de prueba correspondientes.
+
+Próximos pasos
+
+ Ejecutar CP-007.
+
+ Ejecutar CP-008.
+
+ Ejecutar CP-009.
+
+ Ejecutar CP-010.
+
+ Ejecutar CP-011.
+
+ Registrar las incidencias encontradas.
+
+ Adjuntar evidencias de los errores detectados.
+
+ Actualizar el estado general de ejecución.
+
+Documentación
+
+La información detallada y actualizada de los casos de prueba se encuentra disponible en el Google Sheet:
+
+Google Sheet: [https://docs.google.com/spreadsheets/d/1TtbFh83YKn_LwRwaYkOjst00QLZ7CVmYvsNL2etfdgA/edit?usp=sharing]
+
+Este documento se actualizará a medida que se ejecuten los casos de prueba pendientes y se incorporen nuevas evidencias o incidencias.
 
