@@ -1,7 +1,3 @@
-# 🧪 Casos de Prueba - SplitFlow
-
-## Módulo: Gestión de Gastos y Balances
-
 # 🧪 Casos de prueba - SplitFlow
 
 ## Módulo: Gestión de Gastos y Saldos
