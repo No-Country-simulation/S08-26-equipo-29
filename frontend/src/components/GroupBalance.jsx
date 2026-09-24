@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getBalanceBreakdown, getGroupBalances, settlePayment } from '../services/api';
 import Button from './Button';
+import Avatar from './Avatar';
 import SinSaldos from '../public/sinsaldos.svg';
 
-const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 const formatAmount = (amount) => `$${Number(amount).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const SKELETON_ROW_WIDTHS = [72, 55, 64, 48];
@@ -131,7 +131,7 @@ const GroupBalance = ({ groupId, refreshKey = 0, view = 'saldos', onRegisterExpe
       
       {view !== 'deudas' && (
         <>
-          <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex justify-content-between align-items-center direction-column mb-3">
             <h4 className="mb-0">Saldos del grupo</h4>
             <span className="text-muted small">Ordenados por impacto</span>
           </div>
@@ -143,7 +143,7 @@ const GroupBalance = ({ groupId, refreshKey = 0, view = 'saldos', onRegisterExpe
                   onClick={() => toggleBreakdown(member)}
                 >
                   <span className="d-flex align-items-center gap-2">
-                    <span className={`avatar ${balance < -0.005 ? 'avatar-muted' : ''}`}>{initials(member)}</span>
+                    <Avatar name={member} size="small" className="sf-balance-avatar" />
                     <span className="text-start">
                       <strong className="d-block">{member}</strong>
                       <small className="text-muted">

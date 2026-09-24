@@ -579,7 +579,11 @@ function GroupView() {
                 return (
                   <div key={member.id} className="d-flex justify-content-between align-items-center gap-2 p-2 border rounded-3">
                     <span className="d-flex align-items-center gap-2">
-                      <span className={`avatar ${member.active ? '' : 'avatar-muted'}`}>{initials(displayName(member.alias))}</span>
+                      {member.active ? (
+                        <Avatar name={displayName(member.alias)} size="small" />
+                      ) : (
+                        <span className="avatar avatar-muted">{initials(displayName(member.alias))}</span>
+                      )}
                       <strong>{displayName(member.alias)}</strong>
                     </span>
                     <span className="d-flex align-items-center gap-2">

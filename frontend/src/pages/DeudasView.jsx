@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Avatar from '../components/Avatar';
 import './DeudasView.css';
 
 const STATUS_META = {
@@ -75,7 +76,7 @@ export default function DeudasView({ groupName = 'Viaje Melgar', debts = [], onM
             return (
               <article key={debt.id} className="debt-card">
                 <div className="debt-info">
-                  <div className="avatar-circle">{(debt.creditorName || debt.creditor || 'U').charAt(0).toUpperCase()}</div>
+                  <Avatar name={debt.creditorName || debt.creditor || 'Usuario'} size="small" />
                   <div>
                     <div className="debt-main-text">Debes a {debt.creditorName || debt.creditor}</div>
                     <span className={`status-pill ${statusInfo.className}`}>{statusInfo.label}</span>

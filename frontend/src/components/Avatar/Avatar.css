@@ -29,8 +29,8 @@
 }
 
 .sf-avatar--small {
-  width: 28px;
-  height: 28px;
+  width: 45px;
+  height: 45px;
   font-size: 0.6875rem;
   border: var(--sf-stroke-sm) solid;
 }
