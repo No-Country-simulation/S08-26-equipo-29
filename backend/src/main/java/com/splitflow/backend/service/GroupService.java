@@ -38,16 +38,41 @@ public class GroupService {
         if (group == null) {
             return Map.of("balances", balances, "debts", List.of(), "hadDebts", false, "hasExpenses", false);
         }
-        groupMemberRepository.findByGroupId(groupId).forEach(member -> balances.put(member.getAlias(), 0.0));
+        
+        // 1. Crear un diccionario para traducir UUIDs, IDs o alias al alias oficial del miembro
+        Map<String, String> memberAliasMap = new HashMap<>();
+        groupMemberRepository.findByGroupId(groupId).forEach(member -> {
+            String alias = member.getAlias() != null ? member.getAlias().trim() : "";
+            if (!alias.isEmpty()) {
+                memberAliasMap.put(alias, alias);
+                if (member.getId() != null) {
+                    memberAliasMap.put(member.getId().toString(), alias);
+                }
+            }
+        });
+
+        // Inicializar los balances con los alias limpios
+        memberAliasMap.values().forEach(alias -> balances.put(alias, 0.0));
+
         if (group.getExpenses() != null) {
             for (Expense expense : group.getExpenses()) {
                 if (expense == null) continue;
-                String payer = expense.getPaidBy();
-                if (payer != null && !payer.isBlank()) {
+                
+                // Resolver el pagador al alias oficial
+                String rawPayer = expense.getPaidBy() != null ? expense.getPaidBy().trim() : "";
+                String payer = memberAliasMap.getOrDefault(rawPayer, rawPayer);
+                if (!payer.isBlank()) {
                     balances.put(payer, balances.getOrDefault(payer, 0.0) + expense.getAmount());
                 }
-                expenseSplitRepository.findByExpenseId(expense.getId()).forEach(split ->
-                        balances.put(split.getParticipant(), balances.getOrDefault(split.getParticipant(), 0.0) - split.getAmount()));
+                
+                // Resolver cada participante al alias oficial
+                expenseSplitRepository.findByExpenseId(expense.getId()).forEach(split -> {
+                    String rawParticipant = split.getParticipant() != null ? split.getParticipant().trim() : "";
+                    String participant = memberAliasMap.getOrDefault(rawParticipant, rawParticipant);
+                    if (!participant.isBlank()) {
+                        balances.put(participant, balances.getOrDefault(participant, 0.0) - split.getAmount());
+                    }
+                });
             }
         }
         
@@ -77,11 +102,13 @@ public class GroupService {
             if (debtor.getValue() >= -0.005) debtorIndex++;
         }
 
-        // Procesar pagos SETTLED (soporta pagos parciales o totales de forma flexible)
+        // Procesar pagos SETTLED normalizando también los nombres
         List<Payment> settledPayments = paymentRepository.findByGroupIdAndStatus(groupId, "SETTLED");
         for (Payment payment : settledPayments) {
-            String pDebtor = payment.getDebtor();
-            String pCreditor = payment.getCreditor();
+            String rawPDebtor = payment.getDebtor() != null ? payment.getDebtor().trim() : "";
+            String rawPCreditor = payment.getCreditor() != null ? payment.getCreditor().trim() : "";
+            String pDebtor = memberAliasMap.getOrDefault(rawPDebtor, rawPDebtor);
+            String pCreditor = memberAliasMap.getOrDefault(rawPCreditor, rawPCreditor);
             double paidAmount = payment.getAmount();
 
             for (Map<String, Object> debt : debts) {
