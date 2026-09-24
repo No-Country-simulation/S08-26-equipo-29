@@ -1155,11 +1155,19 @@ padding: 15px;
   font-weight: 700;
 }
 
+.expense-form-shell {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 1.15rem;
+  box-shadow: none;
+}
+
 .expense-form__amount {
   margin-bottom: 1.25rem;
   padding: 1.1rem 1.2rem;
-  background: var(--splitflow-violet-soft);
-  border-radius: var(--splitflow-radius);
+  background: linear-gradient(180deg, rgba(126, 97, 255, 0.08) 0%, rgba(126, 97, 255, 0.16) 100%);
+  border: 1px solid rgba(126, 97, 255, 0.12);
+  border-radius: 18px;
 }
 
 .expense-form__group-badge {
@@ -1240,15 +1248,21 @@ padding: 15px;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--splitflow-border);
   border-radius: 14px;
   cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.expense-participant-row:hover {
+  border-color: rgba(91, 91, 241, 0.28);
+  transform: translateY(-1px);
 }
 
 .expense-participant-row.is-selected {
   border-color: var(--splitflow-blue);
-  background: var(--splitflow-violet-soft);
+  background: rgba(91, 91, 241, 0.06);
 }
 
 .expense-participant-row__info {
@@ -1256,6 +1270,69 @@ padding: 15px;
   align-items: center;
   gap: 0.6rem;
   font-weight: 600;
+}
+
+.expense-participant-row input[type='checkbox'] {
+  accent-color: var(--splitflow-blue);
+  width: 18px;
+  height: 18px;
+}
+
+.expense-success {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+ 
+.expense-success__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.8rem;
+  padding: 1.2rem 1rem 0.3rem;
+}
+
+
+.expense-success__header h3 {
+  margin: 0;
+  font-size: 1.7rem;
+  letter-spacing: -0.04em;
+}
+
+.expense-success__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: #f4f6fb;
+  border: 1px solid var(--splitflow-border);
+  font-weight: 700;
+}
+
+.expense-success__summary span {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.expense-success__summary strong {
+  font-size: 1.2rem;
+  letter-spacing: -0.04em;
+}
+
+.expense-success__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.expense-row--compact {
+  padding: 0.75rem 0.85rem;
 }
 
 .group-header {

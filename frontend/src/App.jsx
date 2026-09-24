@@ -13,6 +13,7 @@ import SegmentedControl from './components/SegmentedControl';
 import Logo from '../src/public/LogoDos.svg';
 import InicioAvatar from '../src/public/Inicio.svg';
 import SinGastos from '../src/public/sinGastos.svg';
+import exitoRegistro from '../src/public/exitoRegistro.svg';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 
@@ -348,6 +349,7 @@ function GroupView() {
   const [memberActionError, setMemberActionError] = useState('');
   const [memberToRemove, setMemberToRemove] = useState(null);
   const [currency, setCurrency] = useState('COP');
+  const [savedExpense, setSavedExpense] = useState(null);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -444,15 +446,24 @@ function GroupView() {
       return setInviteMessage(`$${Math.abs(parseFloat(amount) - totalAssigned).toFixed(2)} sin asignar`);
     }
     try {
-      await createExpense(id, { description: description.trim(), amount: parseFloat(amount), paidBy, expenseDate, participants: selectedParticipants, splitMethod, allocations });
+      const created = { description: description.trim(), amount: parseFloat(amount), paidBy, expenseDate, participants: selectedParticipants, splitMethod, allocations };
+      await createExpense(id, created);
+      setSavedExpense({
+        id: `saved-${Date.now()}`,
+        description: created.description,
+        amount: created.amount,
+        paidBy: created.paidBy,
+        expenseDate: created.expenseDate,
+        splits: selectedParticipants.map((participant) => ({ participant, amount: splitMethod === 'EQUAL' ? Number(equalShare) : Number(allocations[participant] || 0) })),
+      });
       setDescription('');
       setAmount('');
       setPaidBy('');
       setAllocations({});
       setInviteMessage('');
-      loadData();
       setBalanceRefreshKey((currentKey) => currentKey + 1);
-      setExpenseView('list');
+      setExpenseView('success');
+      loadData();
     } catch (error) {
       setInviteMessage(error.message);
     }
@@ -686,7 +697,7 @@ function GroupView() {
       )}
 
       {activeTab === 'Gastos' && expenseView === 'form' && (
-            <form onSubmit={handleExpenseSubmit} className="card p-4">
+            <form onSubmit={handleExpenseSubmit} className="expense-form-shell">
               <div className="expense-form__amount">
                 <span className="expense-form__group-badge">
                   <TagIcon />
@@ -783,6 +794,24 @@ function GroupView() {
                 Guardar gasto
               </Button>
             </form>
+      )}
+
+      {activeTab === 'Gastos' && expenseView === 'success' && (
+        <div className="expense-success">
+          <div className="expense-success__header">
+            <img src={exitoRegistro } alt="Registro exitoso" />
+            <h3>¡Registro exitoso!</h3>
+          </div>
+
+          <div className="expense-success__summary">
+            <span>Total del grupo</span>
+            <strong>${(savedExpense ? [savedExpense, ...expenses] : expenses).reduce((sum, ex) => sum + Number(ex.amount || 0), 0).toFixed(2)}</strong>
+          </div>
+
+          <Button variant="primary" icon className="full-width mt-3" onClick={() => setExpenseView('list')}>
+            Ver lista de gastos
+          </Button>
+        </div>
       )}
 
       {(activeTab === 'Saldos' || activeTab === 'Deudas') && (
