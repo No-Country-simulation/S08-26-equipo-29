@@ -90,23 +90,38 @@ public class GroupController {
         if (groupMemberRepository.countByGroupId(id) >= 50) {
             throw new IllegalArgumentException("Este grupo ya alcanzo el limite de 50 participantes");
         }
+        
+        // Si ya existe un alias pendiente con ese nombre, lo actualiza (proceso de reclamar)
         var pendingAlias = groupMemberRepository.findByGroupIdAndAliasAndActiveFalse(id, request.getAlias().trim());
         if (pendingAlias.isPresent()) {
             GroupMember member = pendingAlias.get();
             member.setDeviceId(request.getDeviceId());
             member.setEmail(request.getEmail());
-            member.setActive(true);
+            member.setActive(true); // Al reclamarlo pasa a activo
             return ResponseEntity.ok(groupMemberRepository.save(member));
         }
+        
         if (groupMemberRepository.existsByGroupIdAndAliasIgnoreCase(id, request.getAlias().trim())) {
             throw new IllegalArgumentException("Ya hay alguien con ese nombre en el grupo. Elige otro.");
         }
+        
         Group group = groupRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
-        GroupMember member = new GroupMember(request.getAlias().trim(), request.getDeviceId(), true, group);
+            
+        // CORRECCIÓN PARA CP-002: 
+        // Si se agrega una persona nueva desde el grupo, se guarda como alias SIN RECLAMAR (active = false)
+        // El email pasa a ser completamente opcional.
+        boolean isUnclaimedAlias = (request.getEmail() == null || request.getEmail().isBlank());
+        
+        GroupMember member = new GroupMember(
+            request.getAlias().trim(), 
+            request.getDeviceId(), 
+            !isUnclaimedAlias, // Si viene con email/dispositivo se asume activo, sino entra como alias sin reclamar (false)
+            group
+        );
         member.setEmail(request.getEmail());
         return ResponseEntity.ok(groupMemberRepository.save(member));
-    }
+      }
 
     @DeleteMapping("/{id}/members/{memberId}")
     public ResponseEntity<?> removeMember(@PathVariable Long id, @PathVariable Long memberId) {
