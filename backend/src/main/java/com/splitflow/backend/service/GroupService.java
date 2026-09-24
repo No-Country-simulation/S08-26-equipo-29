@@ -50,28 +50,57 @@ public class GroupService {
                         balances.put(split.getParticipant(), balances.getOrDefault(split.getParticipant(), 0.0) - split.getAmount()));
             }
         }
+        
         List<Map<String, Object>> debts = new ArrayList<>();
         List<Map.Entry<String, Double>> creditors = balances.entrySet().stream().filter(entry -> entry.getValue() > 0.005)
                 .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder())).collect(Collectors.toCollection(ArrayList::new));
         List<Map.Entry<String, Double>> debtors = balances.entrySet().stream().filter(entry -> entry.getValue() < -0.005)
                 .sorted(Map.Entry.comparingByValue()).collect(Collectors.toCollection(ArrayList::new));
+        
         int creditorIndex = 0;
         int debtorIndex = 0;
         while (creditorIndex < creditors.size() && debtorIndex < debtors.size()) {
             Map.Entry<String, Double> creditor = creditors.get(creditorIndex);
             Map.Entry<String, Double> debtor = debtors.get(debtorIndex);
             double amount = Math.min(creditor.getValue(), -debtor.getValue());
-            debts.add(Map.of("debtor", debtor.getKey(), "creditor", creditor.getKey(), "amount", Math.round(amount * 100) / 100.0, "status", "PENDING"));
+            
+            debts.add(new HashMap<>(Map.of(
+                "debtor", debtor.getKey(), 
+                "creditor", creditor.getKey(), 
+                "amount", Math.round(amount * 100) / 100.0, 
+                "status", "PENDING"
+            )));
+            
             creditor.setValue(creditor.getValue() - amount);
             debtor.setValue(debtor.getValue() + amount);
             if (creditor.getValue() <= 0.005) creditorIndex++;
             if (debtor.getValue() >= -0.005) debtorIndex++;
         }
-        boolean hadDebts = !debts.isEmpty();
+
+        // Procesar pagos SETTLED (soporta pagos parciales o totales de forma flexible)
         List<Payment> settledPayments = paymentRepository.findByGroupIdAndStatus(groupId, "SETTLED");
-        debts.removeIf(debt -> settledPayments.stream().anyMatch(payment ->
-            payment.getDebtor().equals(debt.get("debtor")) && payment.getCreditor().equals(debt.get("creditor"))
-                && Math.abs(payment.getAmount() - ((Number) debt.get("amount")).doubleValue()) <= 0.01));
+        for (Payment payment : settledPayments) {
+            String pDebtor = payment.getDebtor();
+            String pCreditor = payment.getCreditor();
+            double paidAmount = payment.getAmount();
+
+            for (Map<String, Object> debt : debts) {
+                if (pDebtor.equals(debt.get("debtor")) && pCreditor.equals(debt.get("creditor"))) {
+                    double currentDebtAmount = ((Number) debt.get("amount")).doubleValue();
+                    double newAmount = currentDebtAmount - paidAmount;
+                    if (newAmount <= 0.005) {
+                        debt.put("amount", 0.0);
+                    } else {
+                        debt.put("amount", Math.round(newAmount * 100) / 100.0);
+                    }
+                }
+            }
+        }
+
+        // Remover deudas que ya quedaron en 0 (completamente saldadas)
+        debts.removeIf(debt -> ((Number) debt.get("amount")).doubleValue() <= 0.005);
+
+        boolean hadDebts = !debts.isEmpty();
         return Map.of("balances", balances, "debts", debts, "hadDebts", hadDebts, "hasExpenses", group.getExpenses() != null && !group.getExpenses().isEmpty());
     }
 

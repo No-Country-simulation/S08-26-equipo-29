@@ -57,14 +57,17 @@ public class ExpenseService {
             .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
 
         SplitMethod method = parseMethod(request.getSplitMethod());
-        Map<String, GroupMember> activeMembers = memberRepository.findByGroupId(groupId).stream()
-                .filter(GroupMember::isActive)
+        
+        // CORRECCIÓN: Se traen TODOS los miembros del grupo (activos y sin reclamar/alias)
+        Map<String, GroupMember> groupMembers = memberRepository.findByGroupId(groupId).stream()
                 .collect(Collectors.toMap(member -> normalize(member.getAlias()), Function.identity(), (first, ignored) -> first));
+        
         List<String> participants = normalizeParticipants(request.getParticipants());
-        validateParticipants(participants, activeMembers);
+        validateParticipants(participants, groupMembers);
+        
         String payer = normalize(request.getPaidBy());
-        if (!activeMembers.containsKey(payer)) {
-            throw new IllegalArgumentException("El pagador debe ser un miembro activo del grupo");
+        if (!groupMembers.containsKey(payer)) {
+            throw new IllegalArgumentException("El pagador debe ser un miembro del grupo");
         }
 
         Map<String, BigDecimal> splitAmounts = calculateSplits(request, method, participants);
@@ -74,7 +77,7 @@ public class ExpenseService {
         List<ExpenseSplit> splits = new ArrayList<>();
         for (String participant : participants) {
             ExpenseSplit split = new ExpenseSplit(participant, splitAmounts.get(participant).doubleValue(), expense);
-            split.setMember(activeMembers.get(participant));
+            split.setMember(groupMembers.get(participant));
             splits.add(split);
         }
         expense.setSplits(splits);
@@ -117,15 +120,15 @@ public class ExpenseService {
         return participants;
     }
 
-    private void validateParticipants(List<String> participants, Map<String, GroupMember> activeMembers) {
-        if (!activeMembers.keySet().containsAll(participants)) {
-            throw new IllegalArgumentException("Todos los participantes deben ser miembros activos del grupo");
+    private void validateParticipants(List<String> participants, Map<String, GroupMember> groupMembers) {
+        if (!groupMembers.keySet().containsAll(participants)) {
+            throw new IllegalArgumentException("Todos los participantes deben pertenecer al grupo");
         }
     }
 
     private Map<String, BigDecimal> calculateSplits(CreateExpenseRequest request,
-                                                      SplitMethod method,
-                                                      List<String> participants) {
+                                                    SplitMethod method,
+                                                    List<String> participants) {
         BigDecimal total = money(request.getAmount());
         if (method == SplitMethod.BY_AMOUNT) {
             if (request.getAllocations() == null) {

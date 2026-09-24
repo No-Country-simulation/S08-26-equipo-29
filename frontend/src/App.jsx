@@ -155,6 +155,12 @@ function HomeView() {
     setGroups(nextGroups);
     localStorage.setItem('splitflow.groups', JSON.stringify(nextGroups));
   };
+  const handleJoinClick = () => {
+    const code = prompt('Ingresa el código de invitación:');
+    if (code && code.trim()) {
+      navigate(`/join/${code.trim()}`);
+    }
+  };
 
   const resetGroups = () => {
     localStorage.removeItem('splitflow.groups');
@@ -225,8 +231,13 @@ function HomeView() {
             <Button variant="primary" icon onClick={() => setShowCreateForm(true)}>
               Crear mi primer grupo
             </Button>
-            <p>¿Tienes un código de invitación?<a className="splitflow-link-button" href="/#"> Únete a un grupo</a></p>
-            <Button variant="ghost" size="small" onClick={resetGroups}>
+           <p>
+              ¿Tienes un código de invitación?{' '}
+              <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+                Únete a un grupo
+              </button>>
+            </p>
+             <Button variant="ghost" size="small" onClick={resetGroups}>
               Borrar grupos guardados
             </Button>
           </div>
@@ -327,7 +338,50 @@ function HomeView() {
     </main>
   );
 }
+function JoinGroupView() {
+  const { inviteCode } = useParams();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
+  useEffect(() => {
+    const joinByCode = async () => {
+      try {
+        const deviceId = localStorage.getItem('splitflow.userId') || crypto.randomUUID();
+        localStorage.setItem('splitflow.userId', deviceId);
+        
+        const group = await getGroupByInviteCode(inviteCode);
+        await joinGroup(group.id, { alias: 'Invitado', deviceId });
+        
+        navigate(`/group/${group.id}`);
+      } catch (err) {
+        setError('Ese código no existe o venció');
+        setLoading(false);
+      }
+    };
+
+    if (inviteCode) {
+      joinByCode();
+    } else {
+      setLoading(false);
+      setError('No se proporcionó un código de invitación.');
+    }
+  }, [inviteCode, navigate]);
+
+  if (loading) {
+    return <main className="splitflow-home-shell"><div className="card p-4 text-center">Uniéndote al grupo...</div></main>;
+  }
+
+  return (
+    <main className="splitflow-home-shell">
+      <div className="card p-4 text-center">
+        <h2>Ese código no existe o venció</h2>
+        <p className="text-danger mt-2">{error}</p>
+        <Button variant="primary" onClick={() => navigate('/')}>Volver al inicio</Button>
+      </div>
+    </main>
+  );
+}
 function GroupView() {
   const { id } = useParams();
   const navigate = useNavigate();
