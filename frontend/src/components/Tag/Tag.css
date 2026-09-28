@@ -1,0 +1,15 @@
+@import '../tokens.css';
+
+.sf-tag {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: var(--sf-radius-full);
+  padding: var(--sf-space-1) var(--sf-space-3);
+  background: var(--sf-color-accent-soft);
+  color: var(--sf-color-action-primary);
+  font-family: var(--sf-font-family);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}

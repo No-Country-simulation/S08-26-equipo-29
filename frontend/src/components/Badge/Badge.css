@@ -1,0 +1,20 @@
+@import '../tokens.css';
+
+.sf-badge {
+  --sf-badge-size: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--sf-badge-size);
+  height: var(--sf-badge-size);
+  box-sizing: border-box;
+  border-radius: var(--sf-radius-full);
+  border: var(--sf-stroke-md) solid var(--sf-color-surface);
+  background: var(--sf-color-action-primary);
+  color: var(--sf-color-text-inverse);
+  font-family: var(--sf-font-family);
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1;
+}

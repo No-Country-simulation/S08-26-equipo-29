@@ -1,0 +1,29 @@
+@import '../tokens.css';
+
+.sf-segmented {
+  display: flex;
+  gap: var(--sf-space-1);
+  padding: var(--sf-space-1);
+  background: var(--sf-color-surface-raised);
+  border-radius: var(--sf-radius-full);
+  font-family: var(--sf-font-family);
+}
+
+.sf-segmented__option {
+  flex: 1;
+  border: none;
+  background: transparent;
+  border-radius: var(--sf-radius-full);
+  padding: var(--sf-space-2) var(--sf-space-4);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--sf-color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sf-segmented__option.is-active {
+  background: var(--sf-color-action-primary);
+  color: var(--sf-color-text-inverse);
+}
