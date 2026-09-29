@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Avatar from '../components/Avatar';
+import { formatCurrency } from '../utils/format';
 import './DeudasView.css';
 
 const STATUS_META = {
@@ -8,11 +9,15 @@ const STATUS_META = {
   PAID: { label: 'Pagado', className: 'status-paid' },
 };
 
-export default function DeudasView({ groupName = 'Viaje Melgar', debts = [], onMarkAsPaid }) {
+const DEFAULT_EMPTY_STATE = { title: 'Sin deudas pendientes', message: 'No tienes deudas pendientes en este grupo' };
+
+export default function DeudasView({ debts = [], emptyState = DEFAULT_EMPTY_STATE, onStartPayment, onMarkAsPaid }) {
   const [selectedDebt, setSelectedDebt] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('PENDING');
   const [statusMap, setStatusMap] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     setStatusMap(Object.fromEntries((debts || []).map((debt) => [debt.id, debt.status || 'PENDING'])));
@@ -24,48 +29,62 @@ export default function DeudasView({ groupName = 'Viaje Melgar', debts = [], onM
     setShowModal(true);
   };
 
+  const closeModal = () => {
+    if (isSubmitting) return;
+    setShowModal(false);
+    setSelectedDebt(null);
+    setModalMode('PENDING');
+    setSubmitError('');
+  };
+
   const handleConfirmPay = async () => {
-    if (!selectedDebt) return;
+    if (!selectedDebt || isSubmitting) return;
 
     if (modalMode === 'STARTED') {
+      onStartPayment?.(selectedDebt);
       setStatusMap((current) => ({ ...current, [selectedDebt.id]: 'STARTED' }));
-      setShowModal(false);
-      setSelectedDebt(null);
-      setModalMode('PENDING');
+      closeModal();
       return;
     }
 
     if (modalMode === 'PAID' && onMarkAsPaid) {
-      await onMarkAsPaid(selectedDebt);
-      setStatusMap((current) => ({ ...current, [selectedDebt.id]: 'PAID' }));
+      setIsSubmitting(true);
+      setSubmitError('');
+      try {
+        await onMarkAsPaid(selectedDebt);
+        setStatusMap((current) => ({ ...current, [selectedDebt.id]: 'PAID' }));
+      } catch (error) {
+        setSubmitError(error.message || 'No pudimos registrar el pago. Intenta de nuevo.');
+        setIsSubmitting(false);
+        return;
+      }
+      setIsSubmitting(false);
     }
 
-    setShowModal(false);
-    setSelectedDebt(null);
-    setModalMode('PENDING');
+    closeModal();
   };
 
-  const formatCurrency = (amount) => `$${Number(amount).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const confirmMessage = () => {
+    const amount = formatCurrency(selectedDebt.amount);
+    if (modalMode === 'STARTED') {
+      return `¿Deseas iniciar el pago de ${amount} a ${selectedDebt.otherName}? El flujo quedará marcado como “Pago iniciado”.`;
+    }
+    return selectedDebt.owedByMe
+      ? `¿Confirmas que ya pagaste ${amount} a ${selectedDebt.otherName}? Esta acción no se puede deshacer.`
+      : `¿Confirmas que ${selectedDebt.otherName} ya te pagó ${amount}? Esta acción no se puede deshacer.`;
+  };
 
   return (
     <div className="splitflow-container">
-      <header className="app-header">
-        <div className="app-header-copy">
-          <small className="eyebrow text-uppercase">SF-5</small>
-          <h1>{groupName}</h1>
-        </div>
-        <button className="floating-action" type="button" aria-label="Agregar">+</button>
-      </header>
-
       <section className="section-title">
         <h2>TUS DEUDAS — VISTA PERSONAL</h2>
       </section>
 
       {debts.length === 0 ? (
         <div className="empty-state-card">
-          <div className="success-icon-badge">✓</div>
-          <h3>Todas las cuentas están saldadas</h3>
-          <p className="empty-subtitle">No tienes deudas pendientes en este grupo</p>
+          {emptyState.showBadge !== false && <div className="success-icon-badge" aria-hidden="true">✓</div>}
+          <h3>{emptyState.title}</h3>
+          <p className="empty-subtitle">{emptyState.message}</p>
         </div>
       ) : (
         <div className="debts-list">
@@ -76,20 +95,22 @@ export default function DeudasView({ groupName = 'Viaje Melgar', debts = [], onM
             return (
               <article key={debt.id} className="debt-card">
                 <div className="debt-info">
-                  <Avatar name={debt.creditorName || debt.creditor || 'Usuario'} size="small" />
+                  <Avatar name={debt.otherName} size="small" />
                   <div>
-                    <div className="debt-main-text">Debes a {debt.creditorName || debt.creditor}</div>
+                    <div className="debt-main-text">
+                      {debt.owedByMe ? `Debes a ${debt.otherName}` : `${debt.otherName} te debe`}
+                    </div>
                     <span className={`status-pill ${statusInfo.className}`}>{statusInfo.label}</span>
                   </div>
                 </div>
                 <div className="debt-right">
                   <span className="debt-amount">{formatCurrency(debt.amount)}</span>
-                  {currentStatus === 'PENDING' && (
+                  {debt.owedByMe && currentStatus === 'PENDING' && (
                     <button className="btn-outline-pay" type="button" onClick={() => handleOpenConfirm(debt, 'STARTED')}>
                       Iniciar pago
                     </button>
                   )}
-                  {currentStatus === 'STARTED' && (
+                  {(debt.owedByMe ? currentStatus === 'STARTED' : currentStatus !== 'PAID') && (
                     <button className="btn-outline-pay btn-primary-soft" type="button" onClick={() => handleOpenConfirm(debt, 'PAID')}>
                       Marcar como pagado
                     </button>
@@ -105,20 +126,17 @@ export default function DeudasView({ groupName = 'Viaje Melgar', debts = [], onM
       )}
 
       {showModal && selectedDebt && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowModal(false); }}>
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
           <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="payment-title">
             <h3 id="payment-title">
               {modalMode === 'STARTED' ? 'Confirmar inicio de pago' : 'Confirmar pago'}
             </h3>
-            <p>
-              {modalMode === 'STARTED'
-                ? `¿Deseas iniciar el pago de ${formatCurrency(selectedDebt.amount)} a ${selectedDebt.creditorName || selectedDebt.creditor}? El flujo quedará marcado como “Pago iniciado”.`
-                : `¿Confirmas que ya pagaste ${formatCurrency(selectedDebt.amount)} a ${selectedDebt.creditorName || selectedDebt.creditor}? Esta acción no se puede deshacer.`}
-            </p>
+            <p>{confirmMessage()}</p>
+            {submitError && <p className="text-danger small" role="alert">{submitError}</p>}
             <div className="modal-actions">
-              <button className="btn-secondary" type="button" onClick={() => setShowModal(false)}>Cancelar</button>
-              <button className="btn-primary" type="button" onClick={handleConfirmPay}>
-                {modalMode === 'STARTED' ? 'Iniciar pago' : 'Confirmar'}
+              <button className="btn-secondary" type="button" onClick={closeModal} disabled={isSubmitting}>Cancelar</button>
+              <button className="btn-primary" type="button" onClick={handleConfirmPay} disabled={isSubmitting}>
+                {isSubmitting ? 'Registrando...' : modalMode === 'STARTED' ? 'Iniciar pago' : 'Confirmar'}
               </button>
             </div>
           </div>

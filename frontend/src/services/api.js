@@ -2,23 +2,34 @@ const backendUrl = import.meta.env.VITE_API_URL
     || (import.meta.env.DEV ? 'http://localhost:8080' : 'https://splitflow-backend-ckr3.onrender.com');
 const API_URL = `${backendUrl.replace(/\/$/, '')}/api`;
 
+// Sin conexión o con el servidor caído, fetch falla con un mensaje técnico en inglés
+const request = async (url, options) => {
+    try {
+        return await fetch(url, options);
+    } catch {
+        throw new Error('No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.');
+    }
+};
+
 const parseResponse = async (response) => {
     const body = await response.json().catch(() => null);
     if (!response.ok) {
         const message = typeof body === 'string' ? body : body?.message;
-        throw new Error(message || `La solicitud fallo (${response.status})`);
+        const error = new Error(message || `La solicitud fallo (${response.status})`);
+        error.status = response.status;
+        throw error;
     }
     return body;
 };
 
 // Grupos
-export const getGroups = async () => {
-    const response = await fetch(`${API_URL}/groups`);
+export const getGroups = async (deviceId) => {
+    const response = await request(`${API_URL}/groups?deviceId=${encodeURIComponent(deviceId)}`);
     return parseResponse(response);
 };
 
 export const createGroup = async (groupData) => {
-    const response = await fetch(`${API_URL}/groups`, {
+    const response = await request(`${API_URL}/groups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(groupData),
@@ -27,17 +38,17 @@ export const createGroup = async (groupData) => {
 };
 
 export const getGroupByInviteCode = async (inviteCode) => {
-    const response = await fetch(`${API_URL}/groups/invite/${inviteCode}`);
+    const response = await request(`${API_URL}/groups/invite/${inviteCode}`);
     return parseResponse(response);
 };
 
 export const getGroupMembers = async (groupId) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/members`);
+    const response = await request(`${API_URL}/groups/${groupId}/members`);
     return parseResponse(response);
 };
 
 export const joinGroup = async (groupId, memberData) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/members`, {
+    const response = await request(`${API_URL}/groups/${groupId}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(memberData),
@@ -46,7 +57,7 @@ export const joinGroup = async (groupId, memberData) => {
 };
 
 export const removeMember = async (groupId, memberId) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/members/${memberId}`, {
+    const response = await request(`${API_URL}/groups/${groupId}/members/${memberId}`, {
         method: 'DELETE',
     });
     if (response.status === 204) return true;
@@ -55,12 +66,12 @@ export const removeMember = async (groupId, memberId) => {
 
 // Usuarios
 export const getUsers = async () => {
-    const response = await fetch(`${API_URL}/users`);
+    const response = await request(`${API_URL}/users`);
     return response.json();
 };
 
 export const createUser = async (userData) => {
-    const response = await fetch(`${API_URL}/users`, {
+    const response = await request(`${API_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
@@ -70,12 +81,12 @@ export const createUser = async (userData) => {
 
 // Gastos
 export const getExpenses = async (groupId) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/expenses`);
+    const response = await request(`${API_URL}/groups/${groupId}/expenses`);
     return parseResponse(response);
 };
 
 export const createExpense = async (groupId, expenseData) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/expenses`, {
+    const response = await request(`${API_URL}/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(expenseData),
@@ -84,20 +95,20 @@ export const createExpense = async (groupId, expenseData) => {
 };
 
 export const getGroupBalances = async (groupId) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/balances`);
+    const response = await request(`${API_URL}/groups/${groupId}/balances`);
     return parseResponse(response);
 };
 
 export const getBalanceBreakdown = async (groupId, member) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/balances/${encodeURIComponent(member)}/breakdown`);
+    const response = await request(`${API_URL}/groups/${groupId}/balances/${encodeURIComponent(member)}/breakdown`);
     return parseResponse(response);
 };
 
-export const settlePayment = async (groupId, debt) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/payments`, {
+export const settlePayment = async (groupId, { debtor, creditor, amount }) => {
+    const response = await request(`${API_URL}/groups/${groupId}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(debt),
+        body: JSON.stringify({ debtor, creditor, amount }),
     });
     return parseResponse(response);
 };
