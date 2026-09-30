@@ -8,6 +8,11 @@ import com.splitflow.backend.model.GroupMember;
 import com.splitflow.backend.dto.JoinGroupRequest;
 import com.splitflow.backend.dto.CreateGroupRequest;
 import com.splitflow.backend.dto.SettlePaymentRequest;
+import com.splitflow.backend.model.Payment;
+import com.splitflow.backend.dto.JoinGroupRequest;
+import com.splitflow.backend.dto.CreateGroupRequest;
+import com.splitflow.backend.dto.SettlePaymentRequest;
+import com.splitflow.backend.repository.PaymentRepository;
 import com.splitflow.backend.repository.ExpenseRepository;
 import com.splitflow.backend.repository.ExpenseSplitRepository;
 import com.splitflow.backend.service.GroupService;
@@ -40,6 +45,9 @@ public class GroupController {
     private GroupMemberRepository groupMemberRepository;
 
     @Autowired
+    private PaymentRepository paymentRepository;
+
+    @Autowired
     private ExpenseRepository expenseRepository;
 
     @Autowired
@@ -54,6 +62,12 @@ public class GroupController {
 
     @PostMapping
     @Transactional
+    @GetMapping
+    public List<Group> getAllGroups() {
+        return groupRepository.findAll();
+    }
+
+    @PostMapping
     public Group createGroup(@Valid @RequestBody CreateGroupRequest request) {
         Group group = new Group(request.getName().trim(), request.getCurrency(), null);
         group.setAliases(request.getAliases());
@@ -71,6 +85,11 @@ public class GroupController {
         }
         if (group.getAliases() != null) {
             group.getAliases().stream().map(String::trim).filter(alias -> !alias.isEmpty()).filter(registeredNames::add)
+        if (group.getOwnerId() != null && !group.getOwnerId().isBlank()) {
+            groupMemberRepository.save(new GroupMember(group.getOwnerId(), group.getOwnerId(), true, savedGroup));
+        }
+        if (group.getAliases() != null) {
+            group.getAliases().stream().map(String::trim).filter(alias -> !alias.isEmpty()).distinct()
                     .forEach(alias -> groupMemberRepository.save(new GroupMember(alias, null, false, savedGroup)));
         }
         return savedGroup;
@@ -148,6 +167,31 @@ public class GroupController {
         return ResponseEntity.noContent().build();
     }
 
+    public ResponseEntity<?> joinGroup(@PathVariable Long id, @Valid @RequestBody JoinGroupRequest request) {
+        if (request.getAlias().trim().length() > 40) {
+            throw new IllegalArgumentException("El nombre no puede superar 40 caracteres");
+        }
+        if (groupMemberRepository.countByGroupId(id) >= 50) {
+            throw new IllegalArgumentException("Este grupo ya alcanzo el limite de 50 participantes");
+        }
+        var pendingAlias = groupMemberRepository.findByGroupIdAndAliasAndActiveFalse(id, request.getAlias().trim());
+        if (pendingAlias.isPresent()) {
+            GroupMember member = pendingAlias.get();
+            member.setDeviceId(request.getDeviceId());
+            member.setEmail(request.getEmail());
+            member.setActive(true);
+            return ResponseEntity.ok(groupMemberRepository.save(member));
+        }
+        if (groupMemberRepository.existsByGroupIdAndAliasIgnoreCase(id, request.getAlias().trim())) {
+            throw new IllegalArgumentException("Ya hay alguien con ese nombre en el grupo. Elige otro.");
+        }
+        Group group = groupRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
+        GroupMember member = new GroupMember(request.getAlias().trim(), request.getDeviceId(), true, group);
+        member.setEmail(request.getEmail());
+        return ResponseEntity.ok(groupMemberRepository.save(member));
+    }
+
     @GetMapping("/{id}/balances")
     public ResponseEntity<?> getGroupBalances(@PathVariable Long id) {
         // Llamamos al servicio para obtener los saldos procesados
@@ -161,6 +205,9 @@ public class GroupController {
                 .filter(split -> userId.equalsIgnoreCase(split.getParticipant()))
                 .forEach(split -> {
                     Expense expense = split.getExpense();
+        expenseRepository.findByGroupId(id).forEach(expense -> expenseSplitRepository.findByExpenseId(expense.getId()).stream()
+                .filter(split -> userId.equalsIgnoreCase(split.getParticipant()))
+                .forEach(split -> {
                     Map<String, Object> item = new HashMap<>();
                     item.put("expenseId", expense.getId());
                     item.put("description", expense.getDescription());
@@ -168,11 +215,19 @@ public class GroupController {
                     item.put("amount", split.getAmount());
                     breakdown.add(item);
                 });
+                }));
         return ResponseEntity.ok(breakdown);
     }
 
     @PostMapping("/{id}/payments")
     public ResponseEntity<?> settlePayment(@PathVariable Long id, @Valid @RequestBody SettlePaymentRequest request) {
         return ResponseEntity.ok(groupService.settleDebt(id, request.getDebtor(), request.getCreditor(), request.getAmount()));
+        if (!groupService.isPendingDebt(id, request.getDebtor(), request.getCreditor(), request.getAmount())) {
+            throw new IllegalArgumentException("La deuda indicada no esta pendiente en este grupo");
+        }
+        Payment payment = new Payment(id, request.getDebtor(), request.getCreditor(), request.getAmount());
+        payment.setStatus("SETTLED");
+        payment.setGroupId(id);
+        return ResponseEntity.ok(paymentRepository.save(payment));
     }
 }

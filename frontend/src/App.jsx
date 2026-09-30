@@ -203,6 +203,24 @@ function HomeView() {
   const [participants, setParticipants] = useState(DEFAULT_PARTICIPANTS);
   const [error, setError] = useState('');
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [error, setError] = useState('');
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+
+  const handleJoinClick = () => {
+    setInviteCodeInput('');
+    setShowJoinModal(true);
+  };
+  
+  const handleJoinWithCode = () => {
+    const code = inviteCodeInput.trim();
+
+    if (!code) return;
+
+    setShowJoinModal(false);
+    navigate(`/join/${code}`);
+  };
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('splitflow.userId');
@@ -296,6 +314,7 @@ function HomeView() {
       persistGroups([...groups, nextGroup]);
       setGroupName('');
       setParticipants(DEFAULT_PARTICIPANTS);
+      setParticipants([]);
       setShowCreateForm(false);
       setError('');
       navigate(`/group/${createdGroup.id}`);
@@ -328,6 +347,12 @@ function HomeView() {
               {joinByCodeButton}
             </p>
              <Button variant="ghost" size="small" onClick={resetGroups}>
+            <p>¿Tienes un código de invitación? <button
+  type="button"
+  className="splitflow-link-button"
+  onClick={handleJoinClick}>
+  Únete a un grupo</button></p>
+            <Button variant="ghost" size="small" onClick={resetGroups}>
               Borrar grupos guardados
             </Button>
           </div>
@@ -359,6 +384,11 @@ function HomeView() {
               Nuevo grupo
             </Button>
             <p>¿Tienes un código de invitación? {joinByCodeButton}</p>
+            <p>¿Tienes un código de invitación? <button
+  type="button"
+  className="splitflow-link-button"
+  onClick={handleJoinClick}>
+  Únete a un grupo</button></p>
             <Button variant="ghost" size="small" className="full-width" onClick={resetGroups}>
               Borrar grupos guardados
             </Button>
@@ -425,9 +455,65 @@ function HomeView() {
           </form>
         </section>
       )}
+
+{showJoinModal && (
+  <div
+    className="payment-modal-backdrop"
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget) {
+        setShowJoinModal(false);
+      }
+    }}
+  >
+    <div
+      className="payment-modal"
+      role="dialog"
+      aria-modal="true"
+    >
+      <h2 className="h4">
+        Unirme a un grupo
+      </h2>
+
+      <p className="text-muted">
+        Ingresa el código de invitación.
+      </p>
+
+      <input
+        type="text"
+        className="form-control text-center"
+        value={inviteCodeInput}
+        onChange={(event) =>
+          setInviteCodeInput(event.target.value)
+        }
+        placeholder="Ej. ABC123"
+        autoFocus
+      />
+
+      <div className="d-flex gap-2 mt-4">
+        <button
+          type="button"
+          className="btn btn-light w-100"
+          onClick={() => setShowJoinModal(false)}
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          className="btn btn-primary w-100"
+          disabled={!inviteCodeInput.trim()}
+          onClick={handleJoinWithCode}
+        >
+          Unirme
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </main>
   );
 }
+
 function GroupView() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -710,6 +796,43 @@ function GroupView() {
       )}
       {showMembersView ? (
         <>
+{inviteCode && (
+  <div className="card p-4 mb-3">
+    <p
+      className="text-uppercase fw-bold text-secondary mb-1"
+      style={{ letterSpacing: '0.08em' }}
+    >
+      Código de invitación
+    </p>
+
+    <div className="d-flex justify-content-between align-items-center gap-3">
+      <strong
+        style={{
+          fontSize: '1.3rem',
+          letterSpacing: '0.12em'
+        }}
+      >
+        {inviteCode}
+      </strong>
+
+      <button
+        type="button"
+        className="btn btn-outline-primary"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(inviteCode);
+            setInviteMessage('Código copiado al portapapeles.');
+          } catch (error) {
+            console.error('Error copiando código:', error);
+            setInviteMessage('No se pudo copiar el código.');
+          }
+        }}
+      >
+        Copiar
+      </button>
+    </div>
+  </div>
+)}
           <Button variant="secondary" size="small" className="full-width" onClick={shareInvite}>+ Invitar</Button>
           {inviteNoticeMessage}
 
