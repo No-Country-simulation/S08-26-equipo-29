@@ -767,30 +767,6 @@ padding: 15px;
   background: radial-gradient(circle at 50% 18%, #f4f0ff 0, #fff 42%, #fff 100%) !important;
 }
 
-.empty-illustration { position: relative; width: 148px; height: 112px; margin: 0 auto 1.4rem; }
-.empty-illustration-stack {
-  position: absolute;
-  left: 36px;
-  top: 21px;
-  width: 76px;
-  height: 72px;
-  padding: 18px 14px;
-  display: grid;
-  gap: 8px;
-  transform: rotate(-8deg);
-  border: 1px solid #cfd8ff;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #fff 0%, #eef2ff 100%);
-  box-shadow: 14px 14px 0 #e3e8ff, 0 18px 35px rgba(45, 91, 255, 0.12);
-}
-.stack-line { height: 7px; border-radius: 999px; background: #c9d3ff; }
-.line-one { width: 80%; background: var(--splitflow-violet); }
-.line-two { width: 100%; }
-.line-three { width: 62%; }
-.empty-illustration-orbit { position: absolute; border-radius: 50%; border: 1px solid #d9d4ff; }
-.orbit-one { width: 34px; height: 34px; top: 8px; right: 7px; background: #fff5d8; border-color: #f4d98d; }
-.orbit-two { width: 18px; height: 18px; bottom: 3px; left: 14px; background: #dcf8ec; border-color: #9de3c3; }
-
 .form-actions { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; margin-top: 1.25rem; }
 .form-actions .secondary-button:disabled { opacity: 0.55; cursor: not-allowed; }
 

@@ -15,13 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -29,17 +30,22 @@ import java.util.stream.Collectors;
 public class ExpenseService {
     private static final BigDecimal CENT = new BigDecimal("0.01");
     private static final BigDecimal TOLERANCE = CENT;
+    // La fecha de un gasto puede ser "hoy" en cualquier zona horaria; la más adelantada es UTC+14
+    private static final ZoneOffset MOST_ADVANCED_ZONE = ZoneOffset.ofHours(14);
 
     private final ExpenseRepository expenseRepository;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository memberRepository;
+    private final Clock clock;
 
     public ExpenseService(ExpenseRepository expenseRepository,
                           GroupRepository groupRepository,
-                          GroupMemberRepository memberRepository) {
+                          GroupMemberRepository memberRepository,
+                          Clock clock) {
         this.expenseRepository = expenseRepository;
         this.groupRepository = groupRepository;
         this.memberRepository = memberRepository;
+        this.clock = clock;
     }
 
     public List<Expense> findAll() {
@@ -68,8 +74,9 @@ public class ExpenseService {
         }
 
         Map<String, BigDecimal> splitAmounts = calculateSplits(request, method, participants);
-        Expense expense = new Expense(request.getDescription().trim(), request.getAmount(), payer, group);
-        expense.setExpenseDate(request.getExpenseDate() == null ? LocalDate.now() : request.getExpenseDate());
+        // El monto del gasto se guarda en centavos, igual que sus repartos, para que el pagador y los deudores cuadren
+        Expense expense = new Expense(request.getDescription().trim(), money(request.getAmount()).doubleValue(), payer, group);
+        expense.setExpenseDate(request.getExpenseDate() == null ? LocalDate.now(clock) : request.getExpenseDate());
 
         List<ExpenseSplit> splits = new ArrayList<>();
         for (String participant : participants) {
@@ -89,10 +96,10 @@ public class ExpenseService {
         if (request.getDescription().trim().length() > 80) {
             throw new IllegalArgumentException("La descripcion no puede superar 80 caracteres");
         }
-        if (request.getAmount() == null || request.getAmount() <= 0) {
+        if (request.getAmount() == null || money(request.getAmount()).signum() <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor a $0");
         }
-        if (request.getExpenseDate() != null && request.getExpenseDate().isAfter(LocalDate.now())) {
+        if (request.getExpenseDate() != null && request.getExpenseDate().isAfter(LocalDate.now(clock.withZone(MOST_ADVANCED_ZONE)))) {
             throw new IllegalArgumentException("La fecha no puede ser futura");
         }
     }
@@ -131,22 +138,38 @@ public class ExpenseService {
             if (request.getAllocations() == null) {
                 throw new IllegalArgumentException("Debes informar un monto para cada participante");
             }
-            Set<String> allocationKeys = request.getAllocations().keySet().stream()
-                    .map(this::normalize).collect(Collectors.toSet());
-            if (!allocationKeys.equals(new HashSet<>(participants))) {
+            // Los nombres se normalizan igual que los participantes; dos claves que coinciden al recortar son ambiguas
+            Map<String, Double> requestedAllocations = new HashMap<>();
+            for (Map.Entry<String, Double> entry : request.getAllocations().entrySet()) {
+                String participant = normalize(entry.getKey());
+                if (requestedAllocations.containsKey(participant)) {
+                    throw new IllegalArgumentException("Debes informar exactamente un monto por participante");
+                }
+                requestedAllocations.put(participant, entry.getValue());
+            }
+            if (!requestedAllocations.keySet().equals(new HashSet<>(participants))) {
                 throw new IllegalArgumentException("Debes informar exactamente un monto por participante");
             }
             Map<String, BigDecimal> allocations = new HashMap<>();
             for (String participant : participants) {
-                Double value = request.getAllocations().get(participant);
+                Double value = requestedAllocations.get(participant);
                 if (value == null || value < 0) {
                     throw new IllegalArgumentException("Cada monto debe ser cero o positivo");
                 }
                 allocations.put(participant, money(value));
             }
             BigDecimal assigned = allocations.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (assigned.subtract(total).abs().compareTo(TOLERANCE) > 0) {
+            BigDecimal difference = total.subtract(assigned);
+            if (difference.abs().compareTo(TOLERANCE) > 0) {
                 throw new IllegalArgumentException("La suma de los montos debe coincidir con el total");
+            }
+            // La diferencia tolerada (un centavo) se absorbe en el primer participante con monto, como en la división
+            // equitativa, para que los repartos sumen exactamente el total del gasto
+            if (difference.signum() != 0) {
+                String receiver = participants.stream()
+                        .filter(participant -> allocations.get(participant).signum() > 0)
+                        .findFirst().orElse(participants.get(0));
+                allocations.merge(receiver, difference, BigDecimal::add);
             }
             return allocations;
         }
