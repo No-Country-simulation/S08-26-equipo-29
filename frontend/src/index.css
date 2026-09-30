@@ -327,9 +327,7 @@ button, input, select { font: inherit; }
     margin-top: 10px;
     text-decoration: none;
     color: var(--color-primary);
-    &:hover{
-      cursor: pointer;
-    }
+    
 }
 .splitflow-Inicio{
 padding: 15px;
