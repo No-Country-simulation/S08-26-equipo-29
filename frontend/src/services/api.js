@@ -91,3 +91,7 @@ export const settlePayment = async (groupId, debt) => {
     });
     return parseResponse(response);
 };
+export const removeMember = async (groupId, memberId) => {
+  const response = await api.delete(`/groups/${groupId}/members/${memberId}`);
+  return response.data;
+};
