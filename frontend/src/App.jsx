@@ -200,8 +200,8 @@ function HomeView() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [currency, setCurrency] = useState('COP');
-  const [participants, setParticipants] = useState(DEFAULT_PARTICIPANTS);
-  const [error, setError] = useState('');
+  
+  
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [error, setError] = useState('');
@@ -231,31 +231,73 @@ function HomeView() {
     setGroups(getStoredGroups());
 
     // El servidor conoce los grupos del dispositivo: se suman los que falten en el listado local
-    getGroups(currentUserId)
-      .then((remoteGroups) => {
-        const storedGroups = getStoredGroups();
-        const knownIds = new Set(storedGroups.map((group) => String(group.id)));
-        const missingGroups = remoteGroups
-          .filter((group) => !knownIds.has(String(group.id)))
-          .map((group) => toStoredGroup(group, group.members || []));
-        if (missingGroups.length === 0) return;
-        const mergedGroups = [...storedGroups, ...missingGroups];
-        setGroups(mergedGroups);
-        saveStoredGroups(mergedGroups);
+   const storedGroups = getStoredGroups();
+
+// Eliminar duplicados que ya existan en los grupos guardados.
+// Primero intenta identificar por ID y, si no existe, por nombre.
+const uniqueStoredGroups = [];
+const seenIds = new Set();
+const seenNames = new Set();
+
+storedGroups.forEach((group) => {
+  const id = group.id != null ? String(group.id) : null;
+  const name = group.name?.trim().toLowerCase();
+
+  if (id && seenIds.has(id)) return;
+  if (name && seenNames.has(name)) return;
+
+  if (id) seenIds.add(id);
+  if (name) seenNames.add(name);
+
+  uniqueStoredGroups.push(group);
+});
+
+setGroups(uniqueStoredGroups);
+saveStoredGroups(uniqueStoredGroups);
+
+// El servidor conoce los grupos del dispositivo: se suman los que falten en el listado local
+getGroups(currentUserId)
+  .then((remoteGroups) => {
+    const currentGroups = [...uniqueStoredGroups];
+
+    const knownIds = new Set(
+      currentGroups
+        .filter((group) => group.id != null)
+        .map((group) => String(group.id))
+    );
+
+    const knownNames = new Set(
+      currentGroups
+        .filter((group) => group.name)
+        .map((group) => group.name.trim().toLowerCase())
+    );
+
+    const missingGroups = remoteGroups
+      .filter((group) => {
+        const id = group.id != null ? String(group.id) : null;
+        const name = group.name?.trim().toLowerCase();
+
+        if (id && knownIds.has(id)) return false;
+        if (name && knownNames.has(name)) return false;
+
+        return true;
       })
-      .catch(() => {});
-  }, []);
+      .map((group) => toStoredGroup(group, group.members || []));
+
+    const mergedGroups = [...currentGroups, ...missingGroups];
+
+    setGroups(mergedGroups);
+    saveStoredGroups(mergedGroups);
+  })
+  .catch(() => {});
+    }, []);
+
 
   const persistGroups = (nextGroups) => {
     setGroups(nextGroups);
     saveStoredGroups(nextGroups);
   };
-  const handleJoinClick = () => {
-    const code = parseInviteCode(prompt('Ingresa el código de invitación:'));
-    if (code) {
-      navigate(`/join/${code}`);
-    }
-  };
+  
 
   const joinByCodeButton = (
     <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
@@ -327,44 +369,61 @@ function HomeView() {
 
   const showForm = showCreateForm;
 
-  return (
-    <main className="splitflow-home-shell">
-      {!showForm && groups.length === 0 && (
-        <section className="splitflow-empty-state" aria-label="No hay grupos creados">
-          <header className="splitflow-header">
-          </header>
+return (
+  <main className="splitflow-home-shell">
+    {!showForm && groups.length === 0 && (
+      <section className="splitflow-empty-state" aria-label="No hay grupos creados">
+        <header className="splitflow-header">
+        </header>
 
-          <div className="splitflow-empty-card">
-            <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
-            <h1 className="splitflow-title">Creá tu primer grupo</h1>
-            <p className="splitflow-subtitle">Registra gastos compartidos y entérate al instante quién le debe a quién</p>
-            <img src={InicioAvatar} alt="Ilustración de inicio" className="splitflow-Inicio" />
-            <Button variant="primary" icon onClick={() => setShowCreateForm(true)}>
-              Crear mi primer grupo
-            </Button>
-           <p>
-              ¿Tienes un código de invitación?{' '}
-              {joinByCodeButton}
-            </p>
-             <Button variant="ghost" size="small" onClick={resetGroups}>
-            <p>¿Tienes un código de invitación? <button
-  type="button"
-  className="splitflow-link-button"
-  onClick={handleJoinClick}>
-  Únete a un grupo</button></p>
-            <Button variant="ghost" size="small" onClick={resetGroups}>
-              Borrar grupos guardados
-            </Button>
-          </div>
-        </section>
-      )}
+        <div className="splitflow-empty-card">
+          <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
 
-      {!showForm && groups.length > 0 && (
-        <section className="splitflow-home-list" aria-label="Listado de grupos">
-          <header className="splitflow-home-list__header">
-            <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
-            <Avatar name={userId} aria-label="Tu perfil" size="medium" />
-          </header>
+          <h1 className="splitflow-title">
+            Creá tu primer grupo
+          </h1>
+
+          <p className="splitflow-subtitle">
+            Registra gastos compartidos y entérate al instante quién le debe a quién
+          </p>
+
+          <img
+            src={InicioAvatar}
+            alt="Ilustración de inicio"
+            className="splitflow-Inicio"
+          />
+
+          <Button
+            variant="primary"
+            icon
+            onClick={() => setShowCreateForm(true)}
+          >
+            Crear mi primer grupo
+          </Button>
+
+          <p>
+            ¿Tienes un código de invitación?{' '}
+            {joinByCodeButton}
+          </p>
+
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={resetGroups}
+          >
+            Borrar grupos guardados
+          </Button>
+        </div>
+      </section>
+    )}
+
+    {!showForm && groups.length > 0 && (
+      <section className="splitflow-home-list" aria-label="Listado de grupos">
+        <header className="splitflow-home-list__header">
+          <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
+          <Avatar name={userId} aria-label="Tu perfil" size="medium" />
+        </header>
+
 
           <div className="splitflow-home-list__content">
             <h2 className="splitflow-section-title">Tus grupos</h2>
@@ -383,7 +442,7 @@ function HomeView() {
             <Button variant="primary" icon className="full-width" onClick={() => setShowCreateForm(true)}>
               Nuevo grupo
             </Button>
-            <p>¿Tienes un código de invitación? {joinByCodeButton}</p>
+            
             <p>¿Tienes un código de invitación? <button
   type="button"
   className="splitflow-link-button"
