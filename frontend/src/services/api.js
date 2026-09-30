@@ -1,6 +1,4 @@
-const backendUrl = import.meta.env.VITE_API_URL
-    || (import.meta.env.DEV ? 'http://localhost:8080' : 'https://splitflow-backend-ckr3.onrender.com');
-const API_URL = `${backendUrl.replace(/\/$/, '')}/api`;
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api`;
 
 const parseResponse = async (response) => {
     const body = await response.json().catch(() => null);
@@ -42,14 +40,6 @@ export const joinGroup = async (groupId, memberData) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(memberData),
     });
-    return parseResponse(response);
-};
-
-export const removeMember = async (groupId, memberId) => {
-    const response = await fetch(`${API_URL}/groups/${groupId}/members/${memberId}`, {
-        method: 'DELETE',
-    });
-    if (response.status === 204) return true;
     return parseResponse(response);
 };
 

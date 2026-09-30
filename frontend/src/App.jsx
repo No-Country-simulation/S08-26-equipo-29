@@ -3,17 +3,11 @@ import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import DeudasView from './pages/DeudasView';
 import './pages/DeudasView.css';
-import { getGroups, createGroup, getGroupByInviteCode, getGroupMembers, joinGroup, removeMember, getExpenses, createExpense, getGroupBalances, settlePayment } from './services/api';
+import { getGroups, createGroup, getGroupByInviteCode, getGroupMembers, joinGroup, getExpenses, createExpense, getGroupBalances, settlePayment } from './services/api';
 import GroupBalance from './components/GroupBalance';
-import Button from './components/Button';
-import Avatar from './components/Avatar';
-import GroupCard from './components/GroupCard';
-import ParticipantCard from './components/ParticipantCard';
-import SegmentedControl from './components/SegmentedControl';
 import Logo from '../src/public/LogoDos.svg';
 import InicioAvatar from '../src/public/Inicio.svg';
-import SinGastos from '../src/public/sinGastos.svg';
-import exitoRegistro from '../src/public/exitoRegistro.svg';
+import SplashScreen from './components/SplashScreen';
 
 const initials = (name = '') => name.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?';
 
@@ -26,6 +20,11 @@ const formatDate = (value) => {
 };
 
 const MAX_GROUP_MEMBERS = 8;
+
+function WelcomeScreen() {
+  const navigate = useNavigate();
+  return <SplashScreen onStart={() => navigate('/home')} />;
+}
 
 function EmptyGroupsIllustration() {
   return (
@@ -46,44 +45,6 @@ function InviteQr({ value }) {
     <div className="invite-qr" role="img" aria-label={`Código QR para ${value}`}>
       <QRCodeSVG value={value} size={192} bgColor="#ffffff" fgColor="#1d2a55" level="M" includeMargin />
     </div>
-  );
-}
-
-function ChevronLeftIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function TagIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M11.6 3H6a2 2 0 00-2 2v5.6c0 .5.2 1 .6 1.4l8.4 8.4c.8.8 2 .8 2.8 0l5.6-5.6c.8-.8.8-2 0-2.8L12.99 3.6c-.4-.4-.9-.6-1.4-.6z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <circle cx="8" cy="8" r="1.2" fill="currentColor" />
-    </svg>
   );
 }
 
@@ -129,6 +90,7 @@ function HomeView() {
   const [groupName, setGroupName] = useState('');
   const [currency, setCurrency] = useState('COP');
   const [participants, setParticipants] = useState(['Vanessa Gamarra', 'Tú']);
+  const [participantInput, setParticipantInput] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -156,12 +118,6 @@ function HomeView() {
     setGroups(nextGroups);
     localStorage.setItem('splitflow.groups', JSON.stringify(nextGroups));
   };
-  const handleJoinClick = () => {
-    const code = prompt('Ingresa el código de invitación:');
-    if (code && code.trim()) {
-      navigate(`/join/${code.trim()}`);
-    }
-  };
 
   const resetGroups = () => {
     localStorage.removeItem('splitflow.groups');
@@ -169,11 +125,13 @@ function HomeView() {
     setShowCreateForm(true);
   };
 
-  const addParticipant = (cleanName) => {
+  const addParticipant = () => {
+    const cleanName = participantInput.trim();
     if (!cleanName || participants.includes(cleanName)) {
       return;
     }
     setParticipants((currentParticipants) => [...currentParticipants, cleanName]);
+    setParticipantInput('');
   };
 
   const removeParticipant = (nameToRemove) => {
@@ -210,8 +168,8 @@ function HomeView() {
       setShowCreateForm(false);
       setError('');
       navigate(`/group/${createdGroup.id}`);
-    } catch (createError) {
-      setError(createError.message || 'No pudimos crear el grupo. Intenta de nuevo.');
+    } catch {
+      setError('No pudimos crear el grupo. Revisa que el backend esté activo e intenta de nuevo.');
     }
   };
 
@@ -229,18 +187,13 @@ function HomeView() {
             <h1 className="splitflow-title">Creá tu primer grupo</h1>
             <p className="splitflow-subtitle">Registra gastos compartidos y entérate al instante quién le debe a quién</p>
             <img src={InicioAvatar} alt="Ilustración de inicio" className="splitflow-Inicio" />
-            <Button variant="primary" icon onClick={() => setShowCreateForm(true)}>
-              Crear mi primer grupo
-            </Button>
-           <p>
-              ¿Tienes un código de invitación?{' '}
-              <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
-                Únete a un grupo
-              </button>
-            </p>
-             <Button variant="ghost" size="small" onClick={resetGroups}>
+            <button type="button" className="splitflow-primary-button" onClick={() => setShowCreateForm(true)}>
+              Crear mi primer grupo →
+            </button>
+            <p>¿Tienes un código de invitación?<a className="splitflow-link-button" href="/#"> Únete a un grupo</a></p>
+            <button type="button" className="splitflow-reset-button" onClick={resetGroups}>
               Borrar grupos guardados
-            </Button>
+            </button>
           </div>
         </section>
       )}
@@ -249,7 +202,7 @@ function HomeView() {
         <section className="splitflow-home-list" aria-label="Listado de grupos">
           <header className="splitflow-home-list__header">
             <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
-            <Avatar name="Vanessa Gamarra" size="medium" />
+            <div className="splitflow-avatar small">VG</div>
           </header>
 
           <div className="splitflow-home-list__content">
@@ -257,22 +210,34 @@ function HomeView() {
 
             <div className="splitflow-group-list">
               {groups.map((group) => (
-                <GroupCard
+                <button
+                  type="button"
                   key={group.id}
-                  name={group.name}
-                  members={(group.aliases || []).map((alias, index) => ({ id: index, name: alias }))}
+                  className="splitflow-group-card"
                   onClick={() => navigate(`/group/${group.id}`)}
-                />
+                >
+                  <div className="splitflow-group-card__avatars" aria-hidden="true">
+                    <span className="splitflow-mini-avatar"></span>
+                  </div>
+                  <div className="splitflow-group-card__info">
+                    <strong>{group.name}</strong>
+                    <span>{(group.aliases?.length || 0)} miembros</span>
+                  </div>
+                  <div className="splitflow-group-card__meta">
+                    <span className="splitflow-group-card__amount">$0</span>
+                    <span className="splitflow-group-card__action">›</span>
+                  </div>
+                </button>
               ))}
             </div>
 
-            <Button variant="primary" icon className="full-width" onClick={() => setShowCreateForm(true)}>
-              Nuevo grupo
-            </Button>
+            <button type="button" className="splitflow-primary-button full-width" onClick={() => setShowCreateForm(true)}>
+              Nuevo grupo +
+            </button>
             <p>¿Tienes un código de invitación?<a className="splitflow-link-button" href="/#"> Únete a un grupo</a></p>
-            <Button variant="ghost" size="small" className="full-width" onClick={resetGroups}>
+            <button type="button" className="splitflow-reset-button full-width" onClick={resetGroups}>
               Borrar grupos guardados
-            </Button>
+            </button>
           </div>
         </section>
       )}
@@ -316,29 +281,48 @@ function HomeView() {
               <p>Agrega los nombres de tus amigos o familiares.</p>
               <p>Cada uno podrá elegir el suyo cuando los invites.</p>
 
-              <ParticipantCard
-                participants={participants.map((name) => ({
-                  id: name,
-                  name,
-                  tag: name === 'Tú' ? 'Tú' : undefined,
-                  removable: name !== 'Tú',
-                }))}
-                onRemoveParticipant={removeParticipant}
-                onAddParticipant={addParticipant}
-              />
+              <div className="splitflow-participants-list">
+                {participants.map((participant) => (
+                  <div key={participant} className="splitflow-participant-chip">
+                    <span>{participant}</span>
+                    {participant !== 'Tú' && (
+                      <button type="button" onClick={() => removeParticipant(participant)} aria-label={`Quitar ${participant}`}>
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="splitflow-add-participant">
+                <input
+                  type="text"
+                  value={participantInput}
+                  onChange={(event) => setParticipantInput(event.target.value)}
+                  placeholder="Nombre del participante"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addParticipant();
+                    }
+                  }}
+                />
+                <button type="button" onClick={addParticipant}>Agregar</button>
+              </div>
             </div>
 
             {error && <p className="splitflow-error" role="alert">{error}</p>}
 
-            <Button type="submit" variant="primary" icon className="full-width form-submit" disabled={!groupName.trim()}>
-              Crear grupo
-            </Button>
+            <button type="submit" className="splitflow-primary-button full-width form-submit" disabled={!groupName.trim()}>
+              Crear grupo →
+            </button>
           </form>
         </section>
       )}
     </main>
   );
 }
+
 function GroupView() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -353,13 +337,6 @@ function GroupView() {
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState('Gastos');
-  const [isAddingParticipant, setIsAddingParticipant] = useState(false);
-  const [expenseView, setExpenseView] = useState('list');
-  const [showMembersView, setShowMembersView] = useState(false);
-  const [memberActionError, setMemberActionError] = useState('');
-  const [memberToRemove, setMemberToRemove] = useState(null);
-  const [currency, setCurrency] = useState('COP');
-  const [savedExpense, setSavedExpense] = useState(null);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -391,7 +368,6 @@ function GroupView() {
       setGroupName(localGroup.name);
       setAliases(localGroup.aliases || []);
       setInviteCode(localGroup.inviteCode || '');
-      setCurrency(localGroup.currency || 'COP');
     }
     loadData();
   }, [id]);
@@ -422,27 +398,10 @@ function GroupView() {
       setPaidBy((currentPaidBy) => currentPaidBy || createdMember.alias);
       setUsername('');
       setEmail('');
-      setIsAddingParticipant(false);
     } catch (error) {
       setMemberError(error.message);
     } finally {
       setIsAddingMember(false);
-    }
-  };
-
-  const memberHasActivity = (alias) => expenses.some((expense) => expense.paidBy === alias
-    || expense.splits?.some((split) => split.participant === alias));
-
-  const confirmRemoveMember = async () => {
-    if (!memberToRemove) return;
-    setMemberActionError('');
-    try {
-      await removeMember(id, memberToRemove.id);
-      setMembers((currentMembers) => currentMembers.filter((current) => current.id !== memberToRemove.id));
-      setMemberToRemove(null);
-    } catch (error) {
-      setMemberActionError(error.message);
-      setMemberToRemove(null);
     }
   };
 
@@ -456,24 +415,14 @@ function GroupView() {
       return setInviteMessage(`$${Math.abs(parseFloat(amount) - totalAssigned).toFixed(2)} sin asignar`);
     }
     try {
-      const created = { description: description.trim(), amount: parseFloat(amount), paidBy, expenseDate, participants: selectedParticipants, splitMethod, allocations };
-      await createExpense(id, created);
-      setSavedExpense({
-        id: `saved-${Date.now()}`,
-        description: created.description,
-        amount: created.amount,
-        paidBy: created.paidBy,
-        expenseDate: created.expenseDate,
-        splits: selectedParticipants.map((participant) => ({ participant, amount: splitMethod === 'EQUAL' ? Number(equalShare) : Number(allocations[participant] || 0) })),
-      });
+      await createExpense(id, { description: description.trim(), amount: parseFloat(amount), paidBy, expenseDate, participants: selectedParticipants, splitMethod, allocations });
       setDescription('');
       setAmount('');
       setPaidBy('');
       setAllocations({});
       setInviteMessage('');
-      setBalanceRefreshKey((currentKey) => currentKey + 1);
-      setExpenseView('success');
       loadData();
+      setBalanceRefreshKey((currentKey) => currentKey + 1);
     } catch (error) {
       setInviteMessage(error.message);
     }
@@ -497,346 +446,167 @@ function GroupView() {
     setInviteMessage(`Enlace copiado: ${inviteUrl}`);
   };
 
-  const myDeviceId = localStorage.getItem('splitflow.userId');
-  const myAlias = members.find((member) => member.deviceId === myDeviceId)?.alias;
-  const displayName = (alias) => (alias === myAlias ? 'Tú' : alias);
-
   return (
-    <main className="splitflow-home-shell">
-      <div className="splitflow-group-view">
-      {expenseView !== 'form' && !showMembersView && (
-        <>
-          <div className="group-header mb-4">
-            <button className="group-header__icon-button" onClick={() => navigate('/')} type="button" aria-label="Volver a grupos">
-              <ChevronLeftIcon />
-            </button>
-            <h2 className="group-header__title">{groupName}</h2>
-            <button
-              className="group-header__icon-button"
-              onClick={() => { setActiveTab('Gastos'); setExpenseView('form'); }}
-              type="button"
-              aria-label="Nuevo gasto"
-            >
-              <PlusIcon />
-            </button>
-          </div>
+    <main className="container mt-4 mb-5 splitflow-shell">
+      <div className="d-flex justify-content-between align-items-center mb-4 gap-3 flex-wrap">
+        <button className="ghost-button" onClick={() => navigate('/')} type="button">← Volver a Grupos</button>
+        <h2 className="text-primary m-0 fw-bold">{groupName}</h2>
+        {inviteCode && <button className="secondary-button" onClick={shareInvite} type="button">Compartir invitación</button>}
+      </div>
 
-          <SegmentedControl
-            className="mb-4"
-            options={[
-              { value: 'Gastos', label: 'Gastos' },
-              { value: 'Saldos', label: 'Saldos' },
-              { value: 'Deudas', label: 'Deudas' },
-            ]}
-            value={activeTab}
-            onChange={setActiveTab}
-          />
-        </>
-      )}
-
-      {expenseView === 'form' && (
-        <div className="group-header mb-4">
-          <button className="group-header__icon-button" onClick={() => setExpenseView('list')} type="button" aria-label="Volver">
-            <ChevronLeftIcon />
+      <nav className="group-tabs mb-4" aria-label="Navegación del grupo">
+        {['Gastos', 'Saldos', 'Deudas'].map((tab) => (
+          <button key={tab} className={activeTab === tab ? 'group-tab active' : 'group-tab'} onClick={() => setActiveTab(tab)} aria-current={activeTab === tab ? 'page' : undefined} type="button">
+            {tab}
           </button>
-          <h2 className="group-header__title">Nuevo gasto</h2>
-          <span className="group-header__icon-button" aria-hidden="true" />
-        </div>
-      )}
+        ))}
+      </nav>
 
-      {showMembersView && (
-        <div className="group-header mb-4">
-          <button className="group-header__icon-button" onClick={() => setShowMembersView(false)} type="button" aria-label="Volver">
-            <ChevronLeftIcon />
-          </button>
-          <h2 className="group-header__title">Gestionar miembros</h2>
-          <span className="group-header__icon-button" aria-hidden="true" />
-        </div>
-      )}
-
-      <div className="splitflow-group-view__body">
-      {showMembersView ? (
-        <>
-          <Button variant="secondary" size="small" className="full-width" onClick={shareInvite}>+ Invitar</Button>
-          {inviteMessage && <p className="text-success small mt-2" role="status">{inviteMessage}</p>}
-
-          <div className="card p-4 mt-4">
-            {isAddingParticipant ? (
-              <>
-                <h3 className="h4 mb-3">Registrar participante</h3>
-                <form onSubmit={handleUserSubmit}>
-                  <div className="field-group">
-                    <label className="field-label">Nombre</label>
-                    <input type="text" className="form-control" value={username} onChange={(e) => setUsername(e.target.value)} required />
-                  </div>
-                  <div className="field-group">
-                    <label className="field-label">Email</label>
-                    <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                  </div>
-                  {memberError && <p className="text-danger small" role="alert">{memberError}</p>}
-                  <div className="d-flex gap-2">
-                    <button type="submit" className="primary-button w-100" disabled={isAddingMember || !username.trim()}>
-                      {isAddingMember ? 'Guardando...' : 'Guardar participante'}
-                    </button>
-                    <Button type="button" variant="ghost" onClick={() => setIsAddingParticipant(false)}>
-                      Cancelar
-                    </Button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <Button variant="secondary" onClick={() => setIsAddingParticipant(true)}>
-                + Registrar participante
-              </Button>
-            )}
-          </div>
-
-          <div className="card p-4 mt-3">
-            <p className="text-uppercase fw-bold text-secondary mb-2" style={{ letterSpacing: '0.08em' }}>Miembros</p>
-            {memberActionError && <p className="text-danger small" role="alert">{memberActionError}</p>}
-            <div className="d-grid gap-2">
-              {members.map((member) => {
-                const canRemove = member.alias !== myAlias && !memberHasActivity(member.alias);
-                return (
-                  <div key={member.id} className="d-flex justify-content-between align-items-center gap-2 p-2 border rounded-3">
-                    <span className="d-flex align-items-center gap-2">
-                      {member.active ? (
-                        <Avatar name={displayName(member.alias)} size="small" />
-                      ) : (
-                        <span className="avatar avatar-muted">{initials(displayName(member.alias))}</span>
-                      )}
-                      <strong>{displayName(member.alias)}</strong>
-                    </span>
-                    <span className="d-flex align-items-center gap-2">
-                      <span className={`status-pill ${member.active ? 'status-active' : 'status-pending'}`}>{member.active ? 'Activo' : 'Sin reclamar'}</span>
-                      {canRemove && (
-                        <button
-                          type="button"
-                          className="group-header__icon-button"
-                          style={{ width: 28, height: 28 }}
-                          onClick={() => setMemberToRemove(member)}
-                          aria-label={`Expulsar a ${displayName(member.alias)}`}
-                        >
-                          <CloseIcon />
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-              {members.length === 0 && aliases.map((alias) => (
-                <div key={alias} className="d-flex justify-content-between align-items-center gap-2 p-2 border rounded-3">
-                  <span className="d-flex align-items-center gap-2"><span className="avatar avatar-muted">{initials(alias)}</span><strong>{alias}</strong></span><span className="status-pill status-pending">Sin reclamar</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {memberToRemove && (
-            <div
-              className="payment-modal-backdrop"
-              role="presentation"
-              onMouseDown={(event) => { if (event.target === event.currentTarget) setMemberToRemove(null); }}
-            >
-              <section className="payment-modal" role="dialog" aria-modal="true" aria-labelledby="remove-member-title">
-                <h2 id="remove-member-title" className="h4">Quitar del grupo</h2>
-                <p>¿Confirmas que querés quitar a {displayName(memberToRemove.alias)} del grupo? Esta acción no se puede deshacer.</p>
-                <div className="d-flex justify-content-end gap-2 mt-4">
-                  <button className="btn btn-light" onClick={() => setMemberToRemove(null)}>Cancelar</button>
-                  <button className="btn btn-primary" onClick={confirmRemoveMember}>Quitar</button>
-                </div>
-              </section>
-            </div>
-          )}
-        </>
-      ) : (
-      <>
-      {activeTab === 'Gastos' && expenseView === 'list' && (
-        <>
-            <div className="expense-list-header">
-              <div className="expense-list-header__avatars">
-                {members.filter((member) => member.active).map((member) => (
-                  <Avatar
-                    key={member.id}
-                    name={displayName(member.alias)}
-                    size="small"
-                    ring="white"
-                    className="expense-list-header__avatar"
-                  />
-                ))}
-                <span className="expense-list-header__count">{members.filter((member) => member.active).length} miembros</span>
-              </div>
-              <Button variant="secondary" size="small" onClick={() => setShowMembersView(true)}>Gestionar miembros</Button>
-            </div>
-
-            {inviteMessage && <p className="text-success small mt-2" role="status">{inviteMessage}</p>}
-
-            <div className="expense-list">
-              {expenses.length === 0 ? (
-                <div className="text-center text-secondary py-4">
-                  <img src={SinGastos} alt="Ilustración de gastos" />
-                  Este grupo todavía<br /><span className="splitflow-link-button">no tiene gastos</span>
-                  <p>Registra el primero y los participantes sabrán cuánto le corresponde a cada uno.</p></div>
-              ) : (
-                expenses.map((ex) => {
-                  const mySplit = ex.splits?.find((split) => split.participant === myAlias);
-                  return (
-                    <div key={ex.id} className="expense-row">
-                      <Avatar name={displayName(ex.paidBy)} size="small" />
-                      <div className="expense-row__info">
-                        <strong>{ex.description}</strong>
-                        <span>Pagó {displayName(ex.paidBy)} · {formatDate(ex.expenseDate)}</span>
-                      </div>
-                      <div className="expense-row__amounts">
-                        <strong>${Number(ex.amount).toFixed(2)}</strong>
-                        <span>{mySplit ? `Tu parte $${Number(mySplit.amount).toFixed(2)}` : 'No participaste'}</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {expenses.length > 0 && (
-              <div className="expense-list__total">
-                <span>TOTAL DEL GRUPO</span>
-                <strong>${expenses.reduce((sum, ex) => sum + Number(ex.amount), 0).toFixed(2)}</strong>
-              </div>
-            )}
-        </>
-      )}
-
-      {activeTab === 'Gastos' && expenseView === 'form' && (
-            <form onSubmit={handleExpenseSubmit} className="expense-form-shell">
-              <div className="expense-form__amount">
-                <span className="expense-form__group-badge">
-                  <TagIcon />
-                  Gastos de <strong>{groupName}</strong>
-                </span>
-                <span className="expense-form__amount-eyebrow">Monto</span>
-                <div className="expense-form__amount-row">
-                  <span className="expense-form__currency-tag">{currency}</span>
-                  <span className="expense-form__currency-symbol">$</span>
-                  <input
-                    className="expense-form__amount-input"
-                    type="number"
-                    step="10"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="field-group">
-                <label className="field-label">Descripción</label>
-                <input type="text" className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Alojamiento Hotel Melgar" required />
-              </div>
-
-              <div className="field-row">
+      {activeTab === 'Gastos' && (
+        <div className="row g-4">
+          <div className="col-lg-5">
+            <div className="card p-4 mb-4">
+              <p className="text-uppercase fw-bold text-secondary mb-2" style={{ letterSpacing: '0.08em' }}>Participantes</p>
+              <h3 className="h4 mb-3">Registrar participante</h3>
+              <form onSubmit={handleUserSubmit}>
                 <div className="field-group">
-                  <label className="field-label">Quién pagó</label>
+                  <label className="field-label">Nombre</label>
+                  <input type="text" className="form-control" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Email</label>
+                  <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                {memberError && <p className="text-danger small" role="alert">{memberError}</p>}
+                <button type="submit" className="primary-button w-100" disabled={isAddingMember || !username.trim()}>
+                  {isAddingMember ? 'Guardando...' : 'Guardar participante'}
+                </button>
+              </form>
+            </div>
+
+            <div className="card p-4">
+              <p className="text-uppercase fw-bold text-secondary mb-2" style={{ letterSpacing: '0.08em' }}>Miembros</p>
+              <div className="d-grid gap-2">
+                {members.map((member) => (
+                  <div key={member.id} className="d-flex justify-content-between align-items-center gap-2 p-2 border rounded-3">
+                    <span className="d-flex align-items-center gap-2"><span className={`avatar ${member.active ? '' : 'avatar-muted'}`}>{initials(member.alias)}</span><strong>{member.alias}</strong></span>
+                    <span className={`status-pill ${member.active ? 'status-active' : 'status-pending'}`}>{member.active ? 'Activo' : 'Sin reclamar'}</span>
+                  </div>
+                ))}
+                {members.length === 0 && aliases.map((alias) => (
+                  <div key={alias} className="d-flex justify-content-between align-items-center gap-2 p-2 border rounded-3">
+                    <span className="d-flex align-items-center gap-2"><span className="avatar avatar-muted">{initials(alias)}</span><strong>{alias}</strong></span><span className="status-pill status-pending">Sin reclamar</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-lg-7">
+            <div className="card p-4 mb-4">
+              <p className="text-uppercase fw-bold text-secondary mb-2" style={{ letterSpacing: '0.08em' }}>SF-3</p>
+              <h3 className="h4 mb-3">Registrar un gasto</h3>
+              <form onSubmit={handleExpenseSubmit}>
+                <div className="field-group">
+                  <label className="field-label">Denominación</label>
+                  <input type="text" className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Mercado de la semana" required />
+                </div>
+
+                <div className="field-row">
+                  <div className="field-group">
+                    <label className="field-label">Monto</label>
+                    <input type="number" step="0.01" className="form-control" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
+                  </div>
+                  <div className="field-group">
+                    <label className="field-label">Fecha</label>
+                    <input type="date" className="form-control" value={expenseDate} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setExpenseDate(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="field-group">
+                  <label className="field-label">¿Quién pagó?</label>
                   <select className="form-select" value={paidBy} onChange={(e) => setPaidBy(e.target.value)} required>
                     <option value="">Seleccionar participante...</option>
                     {members.filter((member) => member.active).map((member) => (
-                      <option key={member.id} value={member.alias}>{displayName(member.alias)}</option>
+                      <option key={member.id} value={member.alias}>{member.alias}</option>
                     ))}
                   </select>
                 </div>
+
+                <fieldset className="field-group mb-3">
+                  <legend className="field-label">¿Quiénes participaron?</legend>
+                  <div className="chip-list">
+                    {members.filter((member) => member.active).map((member) => (
+                      <label key={member.id} className="member-chip" style={{ cursor: 'pointer' }}>
+                        <input className="form-check-input me-2" type="checkbox" checked={selectedParticipants.includes(member.alias)} onChange={() => toggleParticipant(member.alias)} />
+                        {member.alias}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
                 <div className="field-group">
-                  <label className="field-label">Fecha</label>
-                  <input type="date" className="form-control" value={expenseDate} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setExpenseDate(e.target.value)} />
+                  <span className="field-label d-block">Método de división</span>
+                  <div className="segmented-control" role="radiogroup" aria-label="Método de división">
+                    <label><input type="radio" name="split-method" value="EQUAL" checked={splitMethod === 'EQUAL'} onChange={(event) => setSplitMethod(event.target.value)} />Partes iguales</label>
+                    <label><input type="radio" name="split-method" value="BY_AMOUNT" checked={splitMethod === 'BY_AMOUNT'} onChange={(event) => setSplitMethod(event.target.value)} />Por monto</label>
+                  </div>
                 </div>
-              </div>
 
-              <fieldset className="field-group mb-3">
-                <legend className="field-label">¿Quién participa?</legend>
-                <div className="expense-participants-list">
-                  {members.filter((member) => member.active).map((member) => (
-                    <label key={member.id} className={`expense-participant-row ${selectedParticipants.includes(member.alias) ? 'is-selected' : ''}`}>
-                      <span className="expense-participant-row__info">
-                        <Avatar name={displayName(member.alias)} size="small" />
-                        <span>{displayName(member.alias)}</span>
-                      </span>
-                      <input type="checkbox" checked={selectedParticipants.includes(member.alias)} onChange={() => toggleParticipant(member.alias)} />
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+                {splitMethod === 'EQUAL' && <p className="form-note">{selectedParticipants.length} participantes · ${equalShare} por persona</p>}
+                {splitMethod === 'BY_AMOUNT' && (
+                  <div className="field-group">
+                    {selectedParticipants.map((participant) => (
+                      <div className="input-group mb-2" key={participant}>
+                        <span className="input-group-text">{participant}</span>
+                        <input aria-label={`Monto de ${participant}`} className="form-control" type="number" min="0" step="0.01" value={allocations[participant] || ''} onChange={(event) => setAllocations({ ...allocations, [participant]: event.target.value })} />
+                      </div>
+                    ))}
+                    <p className={Math.abs(amountDifference) <= 0.01 ? 'text-success small mb-0' : 'text-danger small mb-0'}>
+                      {Math.abs(amountDifference) <= 0.01 ? '$0.00 sin asignar' : `$${Math.abs(amountDifference).toFixed(2)} sin asignar`}
+                    </p>
+                  </div>
+                )}
+                <button type="submit" className="primary-button w-100 mt-2" disabled={selectedParticipants.length === 0 || (splitMethod === 'BY_AMOUNT' && Math.abs(amountDifference) > 0.01)}>Registrar gasto</button>
+              </form>
+            </div>
 
-              <div className="field-group">
-                <span className="field-label d-block">¿Cómo lo dividimos?</span>
-                <SegmentedControl
-                  options={[
-                    { value: 'EQUAL', label: 'Partes iguales' },
-                    { value: 'BY_AMOUNT', label: 'Por monto' },
-                  ]}
-                  value={splitMethod}
-                  onChange={setSplitMethod}
-                />
-              </div>
-
-              {splitMethod === 'EQUAL' && <p className="form-note">{selectedParticipants.length} personas · ${equalShare} cada una</p>}
-              {splitMethod === 'BY_AMOUNT' && (
-                <div className="field-group">
-                  {selectedParticipants.map((participant) => (
-                    <div className="input-group mb-2" key={participant}>
-                      <span className="input-group-text">{displayName(participant)}</span>
-                      <input aria-label={`Monto de ${displayName(participant)}`} className="form-control" type="number" min="0" step="0.01" value={allocations[participant] || ''} onChange={(event) => setAllocations({ ...allocations, [participant]: event.target.value })} />
+            <div className="card p-4">
+              <p className="text-uppercase fw-bold text-secondary mb-2" style={{ letterSpacing: '0.08em' }}>Historial</p>
+              <h3 className="h4 mb-3">Gastos registrados</h3>
+              {inviteMessage && <p className="text-danger" role="alert">{inviteMessage}</p>}
+              {expenses.length === 0 ? (
+                <div className="text-center text-secondary py-4">Este grupo todavía no tiene gastos.<br />Registra el primer gasto.</div>
+              ) : (
+                <div className="d-grid gap-2">
+                  {expenses.map((ex) => (
+                    <div key={ex.id} className="expense-tile d-flex justify-content-between align-items-center gap-3">
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="avatar">{initials(ex.paidBy)}</span>
+                        <div>
+                          <strong>{ex.description}</strong><br />
+                          <small className="expense-date">{ex.paidBy} · {formatDate(ex.expenseDate)}</small>
+                        </div>
+                      </div>
+                      <strong className="amount-negative text-nowrap">${Number(ex.amount).toFixed(2)}</strong>
                     </div>
                   ))}
-                  <p className={Math.abs(amountDifference) <= 0.01 ? 'text-success small mb-0' : 'text-danger small mb-0'}>
-                    {Math.abs(amountDifference) <= 0.01 ? '$0.00 sin asignar' : `$${Math.abs(amountDifference).toFixed(2)} sin asignar`}
-                  </p>
                 </div>
               )}
-
-              {inviteMessage && <p className="text-danger" role="alert">{inviteMessage}</p>}
-
-              <Button
-                type="submit"
-                variant="primary"
-                icon
-                className="full-width mt-2"
-                disabled={selectedParticipants.length === 0 || (splitMethod === 'BY_AMOUNT' && Math.abs(amountDifference) > 0.01)}
-              >
-                Guardar gasto
-              </Button>
-            </form>
-      )}
-
-      {activeTab === 'Gastos' && expenseView === 'success' && (
-        <div className="expense-success">
-          <div className="expense-success__header">
-            <img src={exitoRegistro } alt="Registro exitoso" />
-            <h3>¡Registro exitoso!</h3>
+            </div>
           </div>
-
-          <div className="expense-success__summary">
-            <span>Total del grupo</span>
-            <strong>${(savedExpense ? [savedExpense, ...expenses] : expenses).reduce((sum, ex) => sum + Number(ex.amount || 0), 0).toFixed(2)}</strong>
-          </div>
-
-          <Button variant="primary" icon className="full-width mt-3" onClick={() => setExpenseView('list')}>
-            Ver lista de gastos
-          </Button>
         </div>
       )}
 
       {(activeTab === 'Saldos' || activeTab === 'Deudas') && (
+        <div className="row mt-4">
+          <div className="col-12">
             <div className="card p-4">
-              {activeTab === 'Deudas' ? (
-                <DeudasTab groupId={parseInt(id, 10)} groupName={groupName} refreshKey={balanceRefreshKey} />
-              ) : (
-                <GroupBalance groupId={parseInt(id, 10)} refreshKey={balanceRefreshKey} view="saldos" onRegisterExpense={() => setActiveTab('Gastos')} />
-              )}
+              {activeTab === 'Deudas' ? <DeudasTab groupId={parseInt(id, 10)} groupName={groupName} refreshKey={balanceRefreshKey} /> : <GroupBalance groupId={parseInt(id, 10)} refreshKey={balanceRefreshKey} view="saldos" />}
             </div>
+          </div>
+        </div>
       )}
-      </>
-      )}
-      </div>
-      </div>
     </main>
   );
 }
@@ -881,8 +651,8 @@ function JoinGroupView() {
     }
   };
 
-  if (loading) return <main className="splitflow-home-shell"><div className="splitflow-join-view"><p>Cargando invitación...</p></div></main>;
-  if (!group) return <main className="splitflow-home-shell"><div className="splitflow-join-view"><p className="text-danger">{error}</p></div></main>;
+  if (loading) return <main className="container py-5"><p>Cargando invitación...</p></main>;
+  if (!group) return <main className="container py-5"><p className="text-danger">{error}</p></main>;
 
   const hasPendingAliases = availableAliases.length > 0;
   const isGroupFull = groupMembers.length >= MAX_GROUP_MEMBERS && !hasPendingAliases;
@@ -893,20 +663,24 @@ function JoinGroupView() {
   };
 
   return (
-    <main className="splitflow-home-shell">
-      <div className="splitflow-join-view">
-      <section className="card invite-qr-card mb-4">
-        <p className="eyebrow text-uppercase fw-bold mb-1">Invitación a SplitFlow</p>
-        <h1 className="h3 fw-bold mb-2">Únete a {group.name}</h1>
-        <InviteQr value={inviteUrl} />
-        <span className="form-note">Código de invitación</span>
-        <strong className="invite-code">{inviteCode}</strong>
-        <Button variant="secondary" size="small" className="mt-3" onClick={shareInvite}>Compartir enlace</Button>
+    <main className="container py-5 join-shell">
+      <section className="invite-layout">
+        <div className="invite-hero-panel">
+          <p className="eyebrow text-uppercase fw-bold mb-3">Invitación a SplitFlow</p>
+          <h1 className="display-6 fw-bold">Únete a {group.name}</h1>
+          <p className="text-secondary">Escanea el código o comparte este enlace con tu grupo.</p>
+          <button className="secondary-button" type="button" onClick={shareInvite}>Compartir enlace</button>
+        </div>
+        <div className="card invite-qr-card">
+          <InviteQr value={inviteUrl} />
+          <span className="form-note">Código de invitación</span>
+          <strong className="invite-code">{inviteCode}</strong>
+        </div>
       </section>
 
       <section className="card identity-card">
-        <p className="eyebrow text-uppercase fw-bold mb-2">Tu identidad</p>
-        <h2 className="h4 mb-2">¿Quién de estos sos tú?</h2>
+        <p className="eyebrow text-uppercase fw-bold mb-2">SF-2 · Tu identidad</p>
+        <h2 className="h3 mb-2">¿Quién de estos sos tú?</h2>
         <p className="text-secondary mb-4">Elige tu perfil para entrar al grupo.</p>
         {isGroupFull && <div className="capacity-alert" role="alert"><strong>Grupo completo</strong><span>Este grupo alcanzó el límite de {MAX_GROUP_MEMBERS} participantes.</span></div>}
         <form onSubmit={handleJoin}>
@@ -927,44 +701,17 @@ function JoinGroupView() {
           <button className="primary-button w-100" type="submit" disabled={isGroupFull || (!selectedAlias && !customAlias.trim())}>Unirme al grupo</button>
         </form>
       </section>
-      </div>
     </main>
   );
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-  const [isLeavingSplash, setIsLeavingSplash] = useState(false);
-
-  useEffect(() => {
-    const fadeTimer = setTimeout(() => setIsLeavingSplash(true), 1200);
-    const hideTimer = setTimeout(() => setShowSplash(false), 1800);
-
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
-
   return (
-    <>
-      {showSplash && (
-        <div className={`splitflow-splash-screen ${isLeavingSplash ? 'is-leaving' : ''}`} aria-live="polite">
-          <img src={Logo} alt="SplitFlow" className="splitflow-splash-logo" />
-          <p className="splitflow-splash-wordmark">Split<strong>Flow</strong></p>
-          <div className="splitflow-splash-loader" role="status" aria-label="Cargando">
-            <span className="splitflow-splash-loader__dot" />
-            <span className="splitflow-splash-loader__dot" />
-            <span className="splitflow-splash-loader__dot" />
-          </div>
-        </div>
-      )}
-
-      <Routes>
-        <Route path="/" element={<HomeView />} />
-        <Route path="/group/:id" element={<GroupView />} />
-        <Route path="/join/:inviteCode" element={<JoinGroupView />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/" element={<WelcomeScreen />} />
+      <Route path="/home" element={<HomeView />} />
+      <Route path="/group/:id" element={<GroupView />} />
+      <Route path="/join/:inviteCode" element={<JoinGroupView />} />
+    </Routes>
   );
 }
