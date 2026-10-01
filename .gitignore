@@ -25,3 +25,4 @@ replay_pid*
 
 # Local tooling config
 .claude/launch.json
+node_modules/ 
