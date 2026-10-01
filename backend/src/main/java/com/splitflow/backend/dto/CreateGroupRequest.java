@@ -16,9 +16,10 @@ public class CreateGroupRequest {
     private String currency;
 
     @Size(max = 50, message = "No puedes agregar más de 50 participantes")
-    private List<@NotBlank(message = "Los participantes no pueden estar vacíos") String> aliases;
+    private List<@NotBlank(message = "Los participantes no pueden estar vacíos")
+            @Size(max = 40, message = "Cada participante no puede superar 40 caracteres") String> aliases;
 
-    @Size(max = 100, message = "El propietario no puede superar 100 caracteres")
+    @Size(max = 40, message = "El propietario no puede superar 40 caracteres")
     private String ownerId;
 
     public String getName() { return name; }

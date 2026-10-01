@@ -1,6 +1,8 @@
 package com.splitflow.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +31,12 @@ public class Expense {
     private Map<String, Double> allocations;
 
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<ExpenseSplit> splits;
 
     @ManyToOne
     @JoinColumn(name = "group_id")
+    @JsonIgnore
     private Group group;
 
     public Expense() {}

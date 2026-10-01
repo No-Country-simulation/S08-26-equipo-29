@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Navigate, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import DeudasView from './pages/DeudasView';
 import './pages/DeudasView.css';
 import { getGroups, createGroup, getGroupByInviteCode, getGroupMembers, joinGroup, removeMember, getExpenses, createExpense, getGroupBalances, settlePayment } from './services/api';
+import { clearStoredGroups, findStoredGroup, getStoredGroups, saveStoredGroups, upsertStoredGroup } from './services/groupStorage';
+import { clearStartedPayment, getStartedPayments, keepStartedPaymentsOf, markPaymentStarted } from './services/startedPayments';
+import { copyToClipboard } from './utils/clipboard';
+import { formatCurrency, toCents } from './utils/format';
+import { parseInviteCode } from './utils/invite';
+import { YOU_LABEL, isReservedName, memberLabel } from './utils/members';
 import GroupBalance from './components/GroupBalance';
 import Button from './components/Button';
 import Avatar from './components/Avatar';
@@ -25,21 +31,27 @@ const formatDate = (value) => {
   return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
 };
 
-const MAX_GROUP_MEMBERS = 8;
+// Fecha de hoy en la zona horaria del usuario (toISOString usa UTC y adelanta el día por las noches en América)
+const todayISO = () => {
+  const now = new Date();
+  return [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((part) => String(part).padStart(2, '0')).join('-');
+};
 
-function EmptyGroupsIllustration() {
-  return (
-    <div className="empty-illustration" aria-hidden="true">
-      <span className="empty-illustration-orbit orbit-one" />
-      <span className="empty-illustration-orbit orbit-two" />
-      <div className="empty-illustration-stack">
-        <span className="stack-line line-one" />
-        <span className="stack-line line-two" />
-        <span className="stack-line line-three" />
-      </div>
-    </div>
-  );
-}
+const MAX_GROUP_MEMBERS = 50;
+const DEFAULT_PARTICIPANTS = [YOU_LABEL];
+const RESERVED_NAME_MESSAGE = 'Ese nombre está reservado. Elige otro.';
+
+// Solo se guarda localmente lo que Home y el detalle necesitan, sin datos personales de los miembros
+const toStoredGroup = (group, members) => ({
+  id: group.id,
+  name: group.name,
+  currency: group.currency,
+  inviteCode: group.inviteCode,
+  aliases: [...new Set(members.map((member) => member.alias))],
+});
+
+// Deja el grupo en el listado local para que aparezca en Home y con su nombre real al abrirlo
+const rememberGroup = (group, members) => upsertStoredGroup(toStoredGroup(group, members));
 
 function InviteQr({ value }) {
   return (
@@ -87,21 +99,50 @@ function TagIcon() {
   );
 }
 
-function DeudasTab({ groupId, groupName, refreshKey }) {
-  const [debts, setDebts] = useState([]);
+// Qué decir cuando el usuario no tiene deudas: aún no hay gastos, el grupo quedó al día o simplemente no debe nada
+const debtsEmptyState = (summary) => {
+  if (!summary.hasExpenses) {
+    return { title: 'Todavía no hay deudas', message: 'Registra el primer gasto para ver quién le debe a quién', showBadge: false };
+  }
+  if (summary.hadDebts && (summary.debts || []).length === 0) {
+    return { title: 'Todas las cuentas están saldadas', message: '¡Todo el mundo está al día!' };
+  }
+  return { title: 'Sin deudas pendientes', message: 'No tienes deudas pendientes en este grupo' };
+};
+
+// El monto forma parte de la identidad: si la deuda cambia, un "Pago iniciado" anterior ya no le corresponde
+const debtId = (debt) => `${debt.debtor}|${debt.creditor}|${debt.amount}`;
+
+// Vista personal: solo las deudas en las que participa quien mira, no todas las del grupo
+const personalDebts = (summary, myAlias, startedPayments) => (summary.debts || [])
+  .filter((debt) => debt.debtor === myAlias || debt.creditor === myAlias)
+  .map((debt) => {
+    const owedByMe = debt.debtor === myAlias;
+    return {
+      ...debt,
+      id: debtId(debt),
+      owedByMe,
+      otherName: memberLabel(owedByMe ? debt.creditor : debt.debtor, myAlias),
+      status: startedPayments.has(debtId(debt)) ? 'STARTED' : 'PENDING',
+    };
+  });
+
+function DeudasTab({ groupId, refreshKey, myAlias, membersLoaded }) {
+  const [summary, setSummary] = useState(null);
+  const [startedPayments, setStartedPayments] = useState(() => getStartedPayments(groupId));
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const loadDebts = async () => {
-    setLoading(true);
+    setLoadError('');
     try {
-      const summary = await getGroupBalances(groupId);
-      const nextDebts = (summary.debts || []).map((debt, index) => ({
-        ...debt,
-        id: `${debt.debtor}-${debt.creditor}-${index}`,
-        creditorName: debt.creditor,
-        status: 'PENDING',
-      }));
-      setDebts(nextDebts);
+      const nextSummary = await getGroupBalances(groupId);
+      const currentDebtIds = (nextSummary.debts || []).map(debtId);
+      keepStartedPaymentsOf(groupId, currentDebtIds);
+      setStartedPayments((previous) => new Set([...previous, ...getStartedPayments(groupId)].filter((id) => currentDebtIds.includes(id))));
+      setSummary(nextSummary);
+    } catch {
+      setLoadError('No pudimos cargar las deudas. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -111,14 +152,45 @@ function DeudasTab({ groupId, groupName, refreshKey }) {
     loadDebts();
   }, [groupId, refreshKey]);
 
+  const retryLoad = () => {
+    setLoading(true);
+    loadDebts();
+  };
+
+  // Se calcula al dibujar: si los miembros llegan después del resumen, "mis deudas" se actualiza sola
+  const debts = useMemo(
+    () => (summary ? personalDebts(summary, myAlias, startedPayments) : []),
+    [summary, myAlias, startedPayments],
+  );
+
+  const handleStartPayment = (debt) => {
+    markPaymentStarted(groupId, debt.id);
+    setStartedPayments((previous) => new Set(previous).add(debt.id));
+  };
+
   const handleMarkAsPaid = async (debt) => {
-    await settlePayment(groupId, debt);
+    try {
+      await settlePayment(groupId, debt);
+    } catch (error) {
+      // Si el servidor la rechazó (p. ej. otra persona ya la saldó), la lista mostrada quedó desactualizada
+      if (error.status) await loadDebts();
+      throw error;
+    }
+    clearStartedPayment(groupId, debt.id);
     await loadDebts();
   };
 
-  if (loading) return <div className="card p-4">Cargando deudas...</div>;
+  if (loading || !membersLoaded) return <div className="card p-4">Cargando deudas...</div>;
+  if (loadError || !summary) {
+    return (
+      <div className="card p-4">
+        <p className="text-danger" role="alert">{loadError}</p>
+        <Button variant="secondary" size="small" onClick={retryLoad}>Reintentar</Button>
+      </div>
+    );
+  }
 
-  return <DeudasView groupName={groupName} debts={debts} onMarkAsPaid={handleMarkAsPaid} />;
+  return <DeudasView debts={debts} emptyState={debtsEmptyState(summary)} onStartPayment={handleStartPayment} onMarkAsPaid={handleMarkAsPaid} />;
 }
 
 function HomeView() {
@@ -128,8 +200,27 @@ function HomeView() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [currency, setCurrency] = useState('COP');
-  const [participants, setParticipants] = useState(['Vanessa Gamarra', 'Tú']);
+  
+  
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [participants, setParticipants] = useState([]);
   const [error, setError] = useState('');
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+
+  const handleJoinClick = () => {
+    setInviteCodeInput('');
+    setShowJoinModal(true);
+  };
+  
+  const handleJoinWithCode = () => {
+    const code = inviteCodeInput.trim();
+
+    if (!code) return;
+
+    setShowJoinModal(false);
+    navigate(`/join/${code}`);
+  };
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('splitflow.userId');
@@ -137,40 +228,95 @@ function HomeView() {
     if (!storedUserId) localStorage.setItem('splitflow.userId', currentUserId);
     setUserId(currentUserId);
 
-    const storedGroups = JSON.parse(localStorage.getItem('splitflow.groups') || '[]');
-    if (storedGroups.length > 0) {
-      setGroups(storedGroups);
-      return;
-    }
+    setGroups(getStoredGroups());
 
-    getGroups()
-      .then((remoteGroups) => {
-        const mergedGroups = remoteGroups.map((group) => ({ ...group, aliases: group.aliases || [] }));
-        setGroups(mergedGroups);
-        localStorage.setItem('splitflow.groups', JSON.stringify(mergedGroups));
+    // El servidor conoce los grupos del dispositivo: se suman los que falten en el listado local
+   const storedGroups = getStoredGroups();
+
+// Eliminar duplicados que ya existan en los grupos guardados.
+// Primero intenta identificar por ID y, si no existe, por nombre.
+const uniqueStoredGroups = [];
+const seenIds = new Set();
+const seenNames = new Set();
+
+storedGroups.forEach((group) => {
+  const id = group.id != null ? String(group.id) : null;
+  const name = group.name?.trim().toLowerCase();
+
+  if (id && seenIds.has(id)) return;
+  if (name && seenNames.has(name)) return;
+
+  if (id) seenIds.add(id);
+  if (name) seenNames.add(name);
+
+  uniqueStoredGroups.push(group);
+});
+
+setGroups(uniqueStoredGroups);
+saveStoredGroups(uniqueStoredGroups);
+
+// El servidor conoce los grupos del dispositivo: se suman los que falten en el listado local
+getGroups(currentUserId)
+  .then((remoteGroups) => {
+    const currentGroups = [...uniqueStoredGroups];
+
+    const knownIds = new Set(
+      currentGroups
+        .filter((group) => group.id != null)
+        .map((group) => String(group.id))
+    );
+
+    const knownNames = new Set(
+      currentGroups
+        .filter((group) => group.name)
+        .map((group) => group.name.trim().toLowerCase())
+    );
+
+    const missingGroups = remoteGroups
+      .filter((group) => {
+        const id = group.id != null ? String(group.id) : null;
+        const name = group.name?.trim().toLowerCase();
+
+        if (id && knownIds.has(id)) return false;
+        if (name && knownNames.has(name)) return false;
+
+        return true;
       })
-      .catch(() => {});
-  }, []);
+      .map((group) => toStoredGroup(group, group.members || []));
+
+    const mergedGroups = [...currentGroups, ...missingGroups];
+
+    setGroups(mergedGroups);
+    saveStoredGroups(mergedGroups);
+  })
+  .catch(() => {});
+    }, []);
+
 
   const persistGroups = (nextGroups) => {
     setGroups(nextGroups);
-    localStorage.setItem('splitflow.groups', JSON.stringify(nextGroups));
+    saveStoredGroups(nextGroups);
   };
-  const handleJoinClick = () => {
-    const code = prompt('Ingresa el código de invitación:');
-    if (code && code.trim()) {
-      navigate(`/join/${code.trim()}`);
-    }
-  };
+  
+
+  const joinByCodeButton = (
+    <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+      Únete a un grupo
+    </button>
+  );
 
   const resetGroups = () => {
-    localStorage.removeItem('splitflow.groups');
+    clearStoredGroups();
     setGroups([]);
     setShowCreateForm(true);
   };
 
   const addParticipant = (cleanName) => {
     if (!cleanName || participants.includes(cleanName)) {
+      return;
+    }
+    if (isReservedName(cleanName)) {
+      setError(RESERVED_NAME_MESSAGE);
       return;
     }
     setParticipants((currentParticipants) => [...currentParticipants, cleanName]);
@@ -182,6 +328,7 @@ function HomeView() {
 
   const handleCreateGroup = async (event) => {
     event.preventDefault();
+    if (isCreatingGroup) return;
     const cleanName = groupName.trim();
     if (!cleanName) {
       setError('El nombre del grupo es obligatorio');
@@ -190,11 +337,13 @@ function HomeView() {
 
     const normalizedParticipants = [...new Set(participants.filter(Boolean))];
 
+    setIsCreatingGroup(true);
     try {
+      // "Tú" solo identifica al creador en el formulario; el creador ya entra al grupo con su dispositivo
       const createdGroup = await createGroup({
         name: cleanName,
         currency,
-        aliases: normalizedParticipants,
+        aliases: normalizedParticipants.filter((name) => name !== YOU_LABEL),
         ownerId: userId,
       });
 
@@ -206,51 +355,75 @@ function HomeView() {
 
       persistGroups([...groups, nextGroup]);
       setGroupName('');
-      setParticipants(['Vanessa Gamarra', 'Tú']);
+      setParticipants(DEFAULT_PARTICIPANTS);
+      setParticipants([]);
       setShowCreateForm(false);
       setError('');
       navigate(`/group/${createdGroup.id}`);
     } catch (createError) {
       setError(createError.message || 'No pudimos crear el grupo. Intenta de nuevo.');
+    } finally {
+      setIsCreatingGroup(false);
     }
   };
 
   const showForm = showCreateForm;
 
-  return (
-    <main className="splitflow-home-shell">
-      {!showForm && groups.length === 0 && (
-        <section className="splitflow-empty-state" aria-label="No hay grupos creados">
-          <header className="splitflow-header">
-          </header>
+return (
+  <main className="splitflow-home-shell">
+    {!showForm && groups.length === 0 && (
+      <section className="splitflow-empty-state" aria-label="No hay grupos creados">
+        <header className="splitflow-header">
+        </header>
 
-          <div className="splitflow-empty-card">
-            <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
-            <h1 className="splitflow-title">Creá tu primer grupo</h1>
-            <p className="splitflow-subtitle">Registra gastos compartidos y entérate al instante quién le debe a quién</p>
-            <img src={InicioAvatar} alt="Ilustración de inicio" className="splitflow-Inicio" />
-            <Button variant="primary" icon onClick={() => setShowCreateForm(true)}>
-              Crear mi primer grupo
-            </Button>
-           <p>
-              ¿Tienes un código de invitación?{' '}
-              <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
-                Únete a un grupo
-              </button>
-            </p>
-             <Button variant="ghost" size="small" onClick={resetGroups}>
-              Borrar grupos guardados
-            </Button>
-          </div>
-        </section>
-      )}
+        <div className="splitflow-empty-card">
+          <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
 
-      {!showForm && groups.length > 0 && (
-        <section className="splitflow-home-list" aria-label="Listado de grupos">
-          <header className="splitflow-home-list__header">
-            <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
-            <Avatar name="Vanessa Gamarra" size="medium" />
-          </header>
+          <h1 className="splitflow-title">
+            Creá tu primer grupo
+          </h1>
+
+          <p className="splitflow-subtitle">
+            Registra gastos compartidos y entérate al instante quién le debe a quién
+          </p>
+
+          <img
+            src={InicioAvatar}
+            alt="Ilustración de inicio"
+            className="splitflow-Inicio"
+          />
+
+          <Button
+            variant="primary"
+            icon
+            onClick={() => setShowCreateForm(true)}
+          >
+            Crear mi primer grupo
+          </Button>
+
+          <p>
+            ¿Tienes un código de invitación?{' '}
+            {joinByCodeButton}
+          </p>
+
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={resetGroups}
+          >
+            Borrar grupos guardados
+          </Button>
+        </div>
+      </section>
+    )}
+
+    {!showForm && groups.length > 0 && (
+      <section className="splitflow-home-list" aria-label="Listado de grupos">
+        <header className="splitflow-home-list__header">
+          <img src={Logo} alt="SplitFlow" className="splitflow-logo" />
+          <Avatar name={userId} aria-label="Tu perfil" size="medium" />
+        </header>
+
 
           <div className="splitflow-home-list__content">
             <h2 className="splitflow-section-title">Tus grupos</h2>
@@ -260,7 +433,7 @@ function HomeView() {
                 <GroupCard
                   key={group.id}
                   name={group.name}
-                  members={(group.aliases || []).map((alias, index) => ({ id: index, name: alias }))}
+                  members={(group.aliases || []).map((alias, index) => ({ id: index, name: memberLabel(alias) }))}
                   onClick={() => navigate(`/group/${group.id}`)}
                 />
               ))}
@@ -269,7 +442,12 @@ function HomeView() {
             <Button variant="primary" icon className="full-width" onClick={() => setShowCreateForm(true)}>
               Nuevo grupo
             </Button>
-            <p>¿Tienes un código de invitación?<a className="splitflow-link-button" href="/#"> Únete a un grupo</a></p>
+            
+            <p>¿Tienes un código de invitación? <button
+  type="button"
+  className="splitflow-link-button"
+  onClick={handleJoinClick}>
+  Únete a un grupo</button></p>
             <Button variant="ghost" size="small" className="full-width" onClick={resetGroups}>
               Borrar grupos guardados
             </Button>
@@ -320,8 +498,8 @@ function HomeView() {
                 participants={participants.map((name) => ({
                   id: name,
                   name,
-                  tag: name === 'Tú' ? 'Tú' : undefined,
-                  removable: name !== 'Tú',
+                  tag: name === YOU_LABEL ? YOU_LABEL : undefined,
+                  removable: name !== YOU_LABEL,
                 }))}
                 onRemoveParticipant={removeParticipant}
                 onAddParticipant={addParticipant}
@@ -330,12 +508,67 @@ function HomeView() {
 
             {error && <p className="splitflow-error" role="alert">{error}</p>}
 
-            <Button type="submit" variant="primary" icon className="full-width form-submit" disabled={!groupName.trim()}>
-              Crear grupo
+            <Button type="submit" variant="primary" icon className="full-width form-submit" disabled={isCreatingGroup || !groupName.trim()}>
+              {isCreatingGroup ? 'Creando...' : 'Crear grupo'}
             </Button>
           </form>
         </section>
       )}
+
+{showJoinModal && (
+  <div
+    className="payment-modal-backdrop"
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget) {
+        setShowJoinModal(false);
+      }
+    }}
+  >
+    <div
+      className="payment-modal"
+      role="dialog"
+      aria-modal="true"
+    >
+      <h2 className="h4">
+        Unirme a un grupo
+      </h2>
+
+      <p className="text-muted">
+        Ingresa el código de invitación.
+      </p>
+
+      <input
+        type="text"
+        className="form-control text-center"
+        value={inviteCodeInput}
+        onChange={(event) =>
+          setInviteCodeInput(event.target.value)
+        }
+        placeholder="Ej. ABC123"
+        autoFocus
+      />
+
+      <div className="d-flex gap-2 mt-4">
+        <button
+          type="button"
+          className="btn btn-light w-100"
+          onClick={() => setShowJoinModal(false)}
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          className="btn btn-primary w-100"
+          disabled={!inviteCodeInput.trim()}
+          onClick={handleJoinWithCode}
+        >
+          Unirme
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </main>
   );
 }
@@ -345,11 +578,14 @@ function GroupView() {
   const navigate = useNavigate();
 
   const [members, setMembers] = useState([]);
+  const [membersLoaded, setMembersLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [expenses, setExpenses] = useState([]);
   const [groupName, setGroupName] = useState(`Grupo #${id}`);
   const [aliases, setAliases] = useState([]);
   const [inviteCode, setInviteCode] = useState('');
-  const [inviteMessage, setInviteMessage] = useState('');
+  const [expenseError, setExpenseError] = useState('');
+  const [inviteNotice, setInviteNotice] = useState(null);
   const [memberError, setMemberError] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
@@ -361,40 +597,67 @@ function GroupView() {
   const [memberToRemove, setMemberToRemove] = useState(null);
   const [currency, setCurrency] = useState('COP');
   const [savedExpense, setSavedExpense] = useState(null);
+  const [isSavingExpense, setIsSavingExpense] = useState(false);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState('');
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [expenseDate, setExpenseDate] = useState(todayISO);
   const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [splitMethod, setSplitMethod] = useState('EQUAL');
   const [allocations, setAllocations] = useState({});
 
   const loadData = async () => {
-    try {
-      const membersData = await getGroupMembers(id);
+    // Miembros y gastos son independientes: si uno falla, el otro se muestra igual y el error se avisa
+    const [membersResult, expensesResult] = await Promise.allSettled([getGroupMembers(id), getExpenses(id)]);
+    if (membersResult.status === 'fulfilled') {
+      const membersData = membersResult.value;
       setMembers(membersData);
+      setMembersLoaded(true);
       const activeAliases = membersData.filter((member) => member.active).map((member) => member.alias);
       setSelectedParticipants(activeAliases);
-      setPaidBy((currentPaidBy) => currentPaidBy || activeAliases[0] || '');
-      const expensesData = await getExpenses(id);
-      setExpenses(expensesData);
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
+      // Quien registra el gasto suele ser quien pagó: el pagador por defecto es la persona que usa este dispositivo
+      const myDeviceId = localStorage.getItem('splitflow.userId');
+      const myMember = membersData.find((member) => member.active && myDeviceId && member.deviceId === myDeviceId);
+      setPaidBy((currentPaidBy) => currentPaidBy || myMember?.alias || activeAliases[0] || '');
     }
+    if (expensesResult.status === 'fulfilled') {
+      setExpenses(expensesResult.value);
+    }
+    const failure = [membersResult, expensesResult].find((result) => result.status === 'rejected');
+    if (failure) console.error('Error al cargar datos:', failure.reason);
+    setLoadError(failure ? failure.reason.message : '');
+  };
+
+  const applyGroupDetails = (group) => {
+    setGroupName(group.name);
+    setAliases(group.aliases || []);
+    setInviteCode(group.inviteCode || '');
+    setCurrency(group.currency || 'COP');
   };
 
   useEffect(() => {
-    const localGroup = JSON.parse(localStorage.getItem('splitflow.groups') || '[]').find((group) => String(group.id) === String(id));
+    let isCurrent = true;
+    const localGroup = findStoredGroup(id);
+    const deviceId = localStorage.getItem('splitflow.userId');
     if (localGroup) {
-      setGroupName(localGroup.name);
-      setAliases(localGroup.aliases || []);
-      setInviteCode(localGroup.inviteCode || '');
-      setCurrency(localGroup.currency || 'COP');
+      applyGroupDetails(localGroup);
+    } else if (deviceId) {
+      // Sin datos locales del grupo (otro navegador, almacenamiento borrado) se toman de los grupos del dispositivo en el servidor
+      getGroups(deviceId)
+        .then((remoteGroups) => {
+          const remoteGroup = remoteGroups.find((group) => String(group.id) === String(id));
+          if (!isCurrent || !remoteGroup) return;
+          const storedGroup = toStoredGroup(remoteGroup, remoteGroup.members || []);
+          upsertStoredGroup(storedGroup);
+          applyGroupDetails(storedGroup);
+        })
+        .catch(() => {});
     }
     loadData();
+    return () => { isCurrent = false; };
   }, [id]);
 
   const handleUserSubmit = async (e) => {
@@ -404,23 +667,29 @@ function GroupView() {
       setMemberError('Debes ingresar un nombre');
       return;
     }
+    if (isReservedName(alias)) {
+      setMemberError(RESERVED_NAME_MESSAGE);
+      return;
+    }
 
     setIsAddingMember(true);
     setMemberError('');
     try {
-      const deviceId = localStorage.getItem('splitflow.userId') || crypto.randomUUID();
-      localStorage.setItem('splitflow.userId', deviceId);
-      const createdMember = await joinGroup(id, { alias, deviceId, email: email.trim() });
+      // Se registra sin dispositivo: la persona queda "sin reclamar" hasta que abra la invitación y elija su nombre
+      const createdMember = await joinGroup(id, { alias, email: email.trim() });
       setMembers((currentMembers) => {
         const alreadyPresent = currentMembers.some((member) => member.id === createdMember.id);
         return alreadyPresent
           ? currentMembers.map((member) => member.id === createdMember.id ? createdMember : member)
           : [...currentMembers, createdMember];
       });
-      setSelectedParticipants((currentParticipants) => currentParticipants.includes(createdMember.alias)
-        ? currentParticipants
-        : [...currentParticipants, createdMember.alias]);
-      setPaidBy((currentPaidBy) => currentPaidBy || createdMember.alias);
+      // Solo los miembros activos aparecen en el formulario de gastos
+      if (createdMember.active) {
+        setSelectedParticipants((currentParticipants) => currentParticipants.includes(createdMember.alias)
+          ? currentParticipants
+          : [...currentParticipants, createdMember.alias]);
+        setPaidBy((currentPaidBy) => currentPaidBy || createdMember.alias);
+      }
       setUsername('');
       setEmail('');
       setIsAddingParticipant(false);
@@ -440,6 +709,9 @@ function GroupView() {
     try {
       await removeMember(id, memberToRemove.id);
       setMembers((currentMembers) => currentMembers.filter((current) => current.id !== memberToRemove.id));
+      // Quien ya no está en el grupo tampoco puede quedar como participante o pagador del gasto en curso
+      setSelectedParticipants((currentParticipants) => currentParticipants.filter((alias) => alias !== memberToRemove.alias));
+      setPaidBy((currentPaidBy) => (currentPaidBy === memberToRemove.alias ? '' : currentPaidBy));
       setMemberToRemove(null);
     } catch (error) {
       setMemberActionError(error.message);
@@ -447,36 +719,44 @@ function GroupView() {
     }
   };
 
+  // Todo se compara en centavos enteros: con decimales binarios 100 - 99.99 da 0.010000000000005 y no cuadra con el servidor
+  const totalCents = toCents(amount);
+  const assignedCents = selectedParticipants.reduce((sum, participant) => sum + toCents(allocations[participant]), 0);
+  const differenceCents = totalCents - assignedCents;
+  // El servidor tolera un centavo de diferencia y lo absorbe en el primer participante
+  const isSplitBalanced = Math.abs(differenceCents) <= 1;
+  // Partes iguales: el centavo sobrante lo asume el primer participante, igual que en el servidor
+  const equalShareCents = selectedParticipants.length > 0 ? Math.floor(totalCents / selectedParticipants.length) : 0;
+  const equalRemainderCents = selectedParticipants.length > 0 ? totalCents % selectedParticipants.length : 0;
+  const equalShare = formatCurrency(equalShareCents / 100);
+
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
-    if (!description.trim()) return setInviteMessage('La descripcion es obligatoria');
-    if (!amount || parseFloat(amount) <= 0) return setInviteMessage('El monto debe ser mayor a $0');
-    if (selectedParticipants.length === 0) return setInviteMessage('Debes seleccionar al menos un participante');
-    const totalAssigned = selectedParticipants.reduce((sum, participant) => sum + (parseFloat(allocations[participant]) || 0), 0);
-    if (splitMethod === 'BY_AMOUNT' && Math.abs(totalAssigned - parseFloat(amount)) > 0.01) {
-      return setInviteMessage(`$${Math.abs(parseFloat(amount) - totalAssigned).toFixed(2)} sin asignar`);
+    if (isSavingExpense) return;
+    if (!description.trim()) return setExpenseError('La descripcion es obligatoria');
+    if (!amount || parseFloat(amount) <= 0) return setExpenseError('El monto debe ser mayor a $0');
+    if (selectedParticipants.length === 0) return setExpenseError('Debes seleccionar al menos un participante');
+    if (splitMethod === 'BY_AMOUNT' && !isSplitBalanced) {
+      return setExpenseError(`${formatCurrency(Math.abs(differenceCents) / 100)} sin asignar`);
     }
+    setIsSavingExpense(true);
     try {
-      const created = { description: description.trim(), amount: parseFloat(amount), paidBy, expenseDate, participants: selectedParticipants, splitMethod, allocations };
-      await createExpense(id, created);
-      setSavedExpense({
-        id: `saved-${Date.now()}`,
-        description: created.description,
-        amount: created.amount,
-        paidBy: created.paidBy,
-        expenseDate: created.expenseDate,
-        splits: selectedParticipants.map((participant) => ({ participant, amount: splitMethod === 'EQUAL' ? Number(equalShare) : Number(allocations[participant] || 0) })),
-      });
+      // Solo viajan los montos de quienes siguen en el reparto: los de participantes desmarcados harían fallar el guardado
+      const splitAllocations = Object.fromEntries(selectedParticipants.map((participant) => [participant, parseFloat(allocations[participant]) || 0]));
+      const created = { description: description.trim(), amount: parseFloat(amount), paidBy, expenseDate, participants: selectedParticipants, splitMethod, allocations: splitMethod === 'BY_AMOUNT' ? splitAllocations : undefined };
+      setSavedExpense(await createExpense(id, created));
       setDescription('');
       setAmount('');
       setPaidBy('');
       setAllocations({});
-      setInviteMessage('');
+      setExpenseError('');
       setBalanceRefreshKey((currentKey) => currentKey + 1);
       setExpenseView('success');
       loadData();
     } catch (error) {
-      setInviteMessage(error.message);
+      setExpenseError(error.message);
+    } finally {
+      setIsSavingExpense(false);
     }
   };
 
@@ -486,21 +766,32 @@ function GroupView() {
       : [...current, alias]);
   };
 
-  const assignedAmount = selectedParticipants.reduce((sum, participant) => sum + (parseFloat(allocations[participant]) || 0), 0);
-  const amountDifference = parseFloat(amount || 0) - assignedAmount;
-  const equalShare = selectedParticipants.length > 0 && amount
-    ? (Math.floor((parseFloat(amount) * 100) / selectedParticipants.length) / 100).toFixed(2)
-    : '0.00';
+
+  // El gasto recién guardado cuenta hasta que la recarga del servidor lo incluya en la lista
+  const expensesWithSaved = savedExpense && !expenses.some((expense) => expense.id === savedExpense.id)
+    ? [savedExpense, ...expenses]
+    : expenses;
 
   const shareInvite = async () => {
+    if (!inviteCode) {
+      setInviteNotice({ text: 'No encontramos el código de invitación de este grupo en este dispositivo.', isError: true });
+      return;
+    }
     const inviteUrl = `${window.location.origin}/join/${inviteCode}`;
-    await navigator.clipboard?.writeText(inviteUrl);
-    setInviteMessage(`Enlace copiado: ${inviteUrl}`);
+    const copied = await copyToClipboard(inviteUrl);
+    setInviteNotice({ text: copied ? `Enlace copiado: ${inviteUrl}` : `Copia y comparte este enlace: ${inviteUrl}`, isError: false });
   };
 
+  const inviteNoticeMessage = inviteNotice && (
+    <p className={`${inviteNotice.isError ? 'text-danger' : 'text-success'} small mt-2`} role={inviteNotice.isError ? 'alert' : 'status'}>
+      {inviteNotice.text}
+    </p>
+  );
+
   const myDeviceId = localStorage.getItem('splitflow.userId');
-  const myAlias = members.find((member) => member.deviceId === myDeviceId)?.alias;
-  const displayName = (alias) => (alias === myAlias ? 'Tú' : alias);
+  // Sin identificador de dispositivo nadie es "yo": los miembros sin reclamar también tienen el dispositivo vacío
+  const myAlias = myDeviceId ? members.find((member) => member.deviceId === myDeviceId)?.alias : undefined;
+  const displayName = (alias) => memberLabel(alias, myAlias);
 
   return (
     <main className="splitflow-home-shell">
@@ -547,7 +838,7 @@ function GroupView() {
 
       {showMembersView && (
         <div className="group-header mb-4">
-          <button className="group-header__icon-button" onClick={() => setShowMembersView(false)} type="button" aria-label="Volver">
+          <button className="group-header__icon-button" onClick={() => { setShowMembersView(false); setInviteNotice(null); }} type="button" aria-label="Volver">
             <ChevronLeftIcon />
           </button>
           <h2 className="group-header__title">Gestionar miembros</h2>
@@ -556,10 +847,53 @@ function GroupView() {
       )}
 
       <div className="splitflow-group-view__body">
+      {loadError && (
+        <p className="text-danger small" role="alert">
+          {loadError}{' '}
+          <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={loadData}>Reintentar</button>
+        </p>
+      )}
       {showMembersView ? (
         <>
+{inviteCode && (
+  <div className="card p-4 mb-3">
+    <p
+      className="text-uppercase fw-bold text-secondary mb-1"
+      style={{ letterSpacing: '0.08em' }}
+    >
+      Código de invitación
+    </p>
+
+    <div className="d-flex justify-content-between align-items-center gap-3">
+      <strong
+        style={{
+          fontSize: '1.3rem',
+          letterSpacing: '0.12em'
+        }}
+      >
+        {inviteCode}
+      </strong>
+
+      <button
+        type="button"
+        className="btn btn-outline-primary"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(inviteCode);
+            setInviteMessage('Código copiado al portapapeles.');
+          } catch (error) {
+            console.error('Error copiando código:', error);
+            setInviteMessage('No se pudo copiar el código.');
+          }
+        }}
+      >
+        Copiar
+      </button>
+    </div>
+  </div>
+)}
           <Button variant="secondary" size="small" className="full-width" onClick={shareInvite}>+ Invitar</Button>
-          {inviteMessage && <p className="text-success small mt-2" role="status">{inviteMessage}</p>}
+          {inviteNoticeMessage}
 
           <div className="card p-4 mt-4">
             {isAddingParticipant ? (
@@ -571,8 +905,8 @@ function GroupView() {
                     <input type="text" className="form-control" value={username} onChange={(e) => setUsername(e.target.value)} required />
                   </div>
                   <div className="field-group">
-                    <label className="field-label">Email</label>
-                    <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <label className="field-label">Email (opcional)</label>
+                    <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
                   {memberError && <p className="text-danger small" role="alert">{memberError}</p>}
                   <div className="d-flex gap-2">
@@ -667,10 +1001,10 @@ function GroupView() {
                 ))}
                 <span className="expense-list-header__count">{members.filter((member) => member.active).length} miembros</span>
               </div>
-              <Button variant="secondary" size="small" onClick={() => setShowMembersView(true)}>Gestionar miembros</Button>
+              <Button variant="secondary" size="small" onClick={() => { setInviteNotice(null); setShowMembersView(true); }}>Gestionar miembros</Button>
             </div>
 
-            {inviteMessage && <p className="text-success small mt-2" role="status">{inviteMessage}</p>}
+            {inviteNoticeMessage}
 
             <div className="expense-list">
               {expenses.length === 0 ? (
@@ -689,8 +1023,8 @@ function GroupView() {
                         <span>Pagó {displayName(ex.paidBy)} · {formatDate(ex.expenseDate)}</span>
                       </div>
                       <div className="expense-row__amounts">
-                        <strong>${Number(ex.amount).toFixed(2)}</strong>
-                        <span>{mySplit ? `Tu parte $${Number(mySplit.amount).toFixed(2)}` : 'No participaste'}</span>
+                        <strong>{formatCurrency(ex.amount)}</strong>
+                        <span>{mySplit ? `Tu parte ${formatCurrency(mySplit.amount)}` : 'No participaste'}</span>
                       </div>
                     </div>
                   );
@@ -701,7 +1035,7 @@ function GroupView() {
             {expenses.length > 0 && (
               <div className="expense-list__total">
                 <span>TOTAL DEL GRUPO</span>
-                <strong>${expenses.reduce((sum, ex) => sum + Number(ex.amount), 0).toFixed(2)}</strong>
+                <strong>{formatCurrency(expenses.reduce((sum, ex) => sum + Number(ex.amount), 0))}</strong>
               </div>
             )}
         </>
@@ -747,7 +1081,7 @@ function GroupView() {
                 </div>
                 <div className="field-group">
                   <label className="field-label">Fecha</label>
-                  <input type="date" className="form-control" value={expenseDate} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setExpenseDate(e.target.value)} />
+                  <input type="date" className="form-control" value={expenseDate} max={todayISO()} onChange={(e) => setExpenseDate(e.target.value)} />
                 </div>
               </div>
 
@@ -778,7 +1112,12 @@ function GroupView() {
                 />
               </div>
 
-              {splitMethod === 'EQUAL' && <p className="form-note">{selectedParticipants.length} personas · ${equalShare} cada una</p>}
+              {splitMethod === 'EQUAL' && (
+                <p className="form-note">
+                  {selectedParticipants.length} {selectedParticipants.length === 1 ? 'persona' : 'personas'} · {equalShare} cada una
+                  {equalRemainderCents > 0 && ` · ${displayName(selectedParticipants[0])} asume ${formatCurrency(equalRemainderCents / 100)} más`}
+                </p>
+              )}
               {splitMethod === 'BY_AMOUNT' && (
                 <div className="field-group">
                   {selectedParticipants.map((participant) => (
@@ -787,22 +1126,22 @@ function GroupView() {
                       <input aria-label={`Monto de ${displayName(participant)}`} className="form-control" type="number" min="0" step="0.01" value={allocations[participant] || ''} onChange={(event) => setAllocations({ ...allocations, [participant]: event.target.value })} />
                     </div>
                   ))}
-                  <p className={Math.abs(amountDifference) <= 0.01 ? 'text-success small mb-0' : 'text-danger small mb-0'}>
-                    {Math.abs(amountDifference) <= 0.01 ? '$0.00 sin asignar' : `$${Math.abs(amountDifference).toFixed(2)} sin asignar`}
+                  <p className={isSplitBalanced ? 'text-success small mb-0' : 'text-danger small mb-0'}>
+                    {isSplitBalanced ? `${formatCurrency(0)} sin asignar` : `${formatCurrency(Math.abs(differenceCents) / 100)} sin asignar`}
                   </p>
                 </div>
               )}
 
-              {inviteMessage && <p className="text-danger" role="alert">{inviteMessage}</p>}
+              {expenseError && <p className="text-danger" role="alert">{expenseError}</p>}
 
               <Button
                 type="submit"
                 variant="primary"
                 icon
                 className="full-width mt-2"
-                disabled={selectedParticipants.length === 0 || (splitMethod === 'BY_AMOUNT' && Math.abs(amountDifference) > 0.01)}
+                disabled={isSavingExpense || selectedParticipants.length === 0 || (splitMethod === 'BY_AMOUNT' && !isSplitBalanced)}
               >
-                Guardar gasto
+                {isSavingExpense ? 'Guardando...' : 'Guardar gasto'}
               </Button>
             </form>
       )}
@@ -816,7 +1155,7 @@ function GroupView() {
 
           <div className="expense-success__summary">
             <span>Total del grupo</span>
-            <strong>${(savedExpense ? [savedExpense, ...expenses] : expenses).reduce((sum, ex) => sum + Number(ex.amount || 0), 0).toFixed(2)}</strong>
+            <strong>{formatCurrency(expensesWithSaved.reduce((sum, ex) => sum + Number(ex.amount || 0), 0))}</strong>
           </div>
 
           <Button variant="primary" icon className="full-width mt-3" onClick={() => setExpenseView('list')}>
@@ -828,9 +1167,9 @@ function GroupView() {
       {(activeTab === 'Saldos' || activeTab === 'Deudas') && (
             <div className="card p-4">
               {activeTab === 'Deudas' ? (
-                <DeudasTab groupId={parseInt(id, 10)} groupName={groupName} refreshKey={balanceRefreshKey} />
+                <DeudasTab groupId={parseInt(id, 10)} refreshKey={balanceRefreshKey} myAlias={myAlias} membersLoaded={membersLoaded} />
               ) : (
-                <GroupBalance groupId={parseInt(id, 10)} refreshKey={balanceRefreshKey} view="saldos" onRegisterExpense={() => setActiveTab('Gastos')} />
+                <GroupBalance groupId={parseInt(id, 10)} refreshKey={balanceRefreshKey} myAlias={myAlias} onRegisterExpense={() => setActiveTab('Gastos')} />
               )}
             </div>
       )}
@@ -932,6 +1271,116 @@ function GroupView() {
      </main>
    );
  }
+function JoinGroupView() {
+  const inviteCode = parseInviteCode(useParams().inviteCode);
+  const navigate = useNavigate();
+  const [group, setGroup] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [availableAliases, setAvailableAliases] = useState([]);
+  const [selectedAlias, setSelectedAlias] = useState('');
+  const [customAlias, setCustomAlias] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    getGroupByInviteCode(inviteCode)
+      .then((groupData) => getGroupMembers(groupData.id).then((members) => [groupData, members]))
+      .then(([groupData, members]) => {
+        // Quien ya participa con este dispositivo entra directo, sin unirse una segunda vez
+        const myDeviceId = localStorage.getItem('splitflow.userId');
+        if (myDeviceId && members.some((member) => member.deviceId === myDeviceId)) {
+          rememberGroup(groupData, members);
+          navigate(`/group/${groupData.id}`, { replace: true });
+          return;
+        }
+        setGroup(groupData);
+        setGroupMembers(members);
+        setAvailableAliases(members.filter((member) => !member.active));
+      })
+      .catch((loadError) => setError(loadError.status === 404
+        ? 'No encontramos este grupo o el enlace ya no es válido.'
+        : loadError.message))
+      .finally(() => setLoading(false));
+  }, [inviteCode, navigate]);
+
+  const handleJoin = async (event) => {
+    event.preventDefault();
+    if (isJoining) return;
+    const alias = selectedAlias || customAlias.trim();
+    if (!alias) {
+      setError('Debes ingresar un nombre para unirte');
+      return;
+    }
+    if (!selectedAlias && isReservedName(alias)) {
+      setError(RESERVED_NAME_MESSAGE);
+      return;
+    }
+    setIsJoining(true);
+    setError('');
+    try {
+      const deviceId = localStorage.getItem('splitflow.userId') || crypto.randomUUID();
+      localStorage.setItem('splitflow.userId', deviceId);
+      const createdMember = await joinGroup(group.id, { alias, deviceId });
+      rememberGroup(group, [...groupMembers, createdMember]);
+      navigate(`/group/${group.id}`);
+    } catch (joinError) {
+      setError(joinError.message);
+      setIsJoining(false);
+    }
+  };
+
+  if (loading) return <main className="splitflow-home-shell"><div className="splitflow-join-view"><p>Cargando invitación...</p></div></main>;
+  if (!group) return <main className="splitflow-home-shell"><div className="splitflow-join-view"><p className="text-danger">{error}</p></div></main>;
+
+  const hasPendingAliases = availableAliases.length > 0;
+  const isGroupFull = groupMembers.length >= MAX_GROUP_MEMBERS && !hasPendingAliases;
+  const inviteUrl = `${window.location.origin}/join/${inviteCode}`;
+  const shareInvite = async () => {
+    setNotice(await copyToClipboard(inviteUrl) ? 'Enlace copiado.' : `Copia y comparte este enlace: ${inviteUrl}`);
+  };
+
+  return (
+    <main className="splitflow-home-shell">
+      <div className="splitflow-join-view">
+      <section className="card invite-qr-card mb-4">
+        <p className="eyebrow text-uppercase fw-bold mb-1">Invitación a SplitFlow</p>
+        <h1 className="h3 fw-bold mb-2">Únete a {group.name}</h1>
+        <InviteQr value={inviteUrl} />
+        <span className="form-note">Código de invitación</span>
+        <strong className="invite-code">{inviteCode}</strong>
+        <Button variant="secondary" size="small" className="mt-3" onClick={shareInvite}>Compartir enlace</Button>
+      </section>
+
+      <section className="card identity-card">
+        <p className="eyebrow text-uppercase fw-bold mb-2">Tu identidad</p>
+        <h2 className="h4 mb-2">¿Quién de estos sos tú?</h2>
+        <p className="text-secondary mb-4">Elige tu perfil para entrar al grupo.</p>
+        {isGroupFull && <div className="capacity-alert" role="alert"><strong>Grupo completo</strong><span>Este grupo alcanzó el límite de {MAX_GROUP_MEMBERS} participantes.</span></div>}
+        <form onSubmit={handleJoin}>
+          {hasPendingAliases && !isGroupFull ? (
+            <div className="identity-grid">
+              {availableAliases.map((member) => (
+                <label className={`identity-option ${selectedAlias === member.alias ? 'selected' : ''}`} key={member.id}>
+                  <input type="radio" name="identity" value={member.alias} checked={selectedAlias === member.alias} onChange={(event) => setSelectedAlias(event.target.value)} />
+                  <span className="avatar">{initials(member.alias)}</span>
+                  <span><strong>{member.alias}</strong><small>Participante invitado</small></span>
+                </label>
+              ))}
+            </div>
+          ) : !isGroupFull ? (
+            <input className="form-control mb-3" maxLength={40} value={customAlias} onChange={(event) => setCustomAlias(event.target.value)} placeholder="Ej. Carlos" autoFocus />
+          ) : null}
+          {notice && <p className="text-success" role="status">{notice}</p>}
+          {error && <p className="text-danger" role="alert">{error}</p>}
+          <button className="primary-button w-100" type="submit" disabled={isGroupFull || isJoining || (!selectedAlias && !customAlias.trim())}>{isJoining ? 'Uniéndote...' : 'Unirme al grupo'}</button>
+        </form>
+      </section>
+      </div>
+    </main>
+  );
+}
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -965,6 +1414,7 @@ export default function App() {
         <Route path="/" element={<HomeView />} />
         <Route path="/group/:id" element={<GroupView />} />
         <Route path="/join/:inviteCode" element={<JoinGroupView />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );

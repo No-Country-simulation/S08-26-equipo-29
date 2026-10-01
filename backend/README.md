@@ -21,7 +21,7 @@ Servidor backend para **SplitFlow**, desarrollado con **Java 21**, **Spring Boot
 
 ## Endpoints principales
 
-- `GET/POST /api/groups`
+- `GET /api/groups?deviceId={deviceId}` (grupos del dispositivo) y `POST /api/groups`
 - `GET /api/groups/invite/{inviteCode}`
 - `GET/POST /api/groups/{id}/members`
 - `GET/POST /api/groups/{id}/expenses`
