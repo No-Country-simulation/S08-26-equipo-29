@@ -65,7 +65,6 @@ public class GroupController {
         return groupRepository.findAll();
     }
 
-
     @PostMapping
         public Group createGroup(@Valid @RequestBody CreateGroupRequest request) {
             Group group = new Group(request.getName().trim(), request.getCurrency(), null);
@@ -82,14 +81,14 @@ public class GroupController {
             // Control de nombres únicos sin distinción de mayúsculas
             Set<String> registeredNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-            // 1. Registrar al propietario con un alias limpio ("Yo") y asociar su deviceId real
+            // 1. Registrar al propietario: alias="Yo", y el deviceId es el UUID del request
             if (group.getOwnerId() != null && !group.getOwnerId().isBlank()) {
                 String ownerAlias = "Yo";
                 registeredNames.add(ownerAlias);
                 groupMemberRepository.save(new GroupMember(ownerAlias, group.getOwnerId(), true, savedGroup));
             }
 
-            // 2. Registrar los demás participantes (alias) evitando duplicados
+            // 2. Registrar los demás participantes (alias ingresados) evitando duplicados
             if (group.getAliases() != null) {
                 group.getAliases().stream()
                         .map(String::trim)
@@ -100,6 +99,7 @@ public class GroupController {
 
             return savedGroup;
         }
+   
     @GetMapping("/invite/{inviteCode}")
     public Group getGroupByInviteCode(@PathVariable String inviteCode) {
         return groupRepository.findByInviteCode(inviteCode)
