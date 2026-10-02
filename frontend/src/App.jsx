@@ -479,7 +479,9 @@ return (
               Nuevo grupo
             </Button>
             
+
             <p>¿Tienes un código de invitación?<button
+
             type="button"
             className="splitflow-link-button"
             onClick={handleJoinClick}>

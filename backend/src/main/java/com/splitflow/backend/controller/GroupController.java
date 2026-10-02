@@ -65,33 +65,41 @@ public class GroupController {
         return groupRepository.findAll();
     }
 
-
     @PostMapping
-    public Group createGroup(@Valid @RequestBody CreateGroupRequest request) {
-        Group group = new Group(request.getName().trim(), request.getCurrency(), null);
-        group.setAliases(request.getAliases());
-        group.setOwnerId(request.getOwnerId());
-        if (group.getInviteCode() == null || group.getInviteCode().isEmpty()) {
-            String randomCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-            group.setInviteCode(randomCode);
-        }
-        Group savedGroup = groupRepository.save(group);
-        // El nombre de cada miembro es único sin distinguir mayúsculas: el dueño y los alias repetidos se registran una sola vez
-        Set<String> registeredNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        if (group.getOwnerId() != null && !group.getOwnerId().isBlank()) {
-            registeredNames.add(group.getOwnerId().trim());
-            groupMemberRepository.save(new GroupMember(group.getOwnerId(), group.getOwnerId(), true, savedGroup));
-        }
-       if (group.getOwnerId() != null && !group.getOwnerId().isBlank()) {
-            groupMemberRepository.save(new GroupMember(group.getOwnerId(), group.getOwnerId(), true, savedGroup));
-        }
-        if (group.getAliases() != null) {
-            group.getAliases().stream().map(String::trim).filter(alias -> !alias.isEmpty()).distinct()
-                    .forEach(alias -> groupMemberRepository.save(new GroupMember(alias, null, false, savedGroup)));
-        }
-        return savedGroup;
-    }
+        public Group createGroup(@Valid @RequestBody CreateGroupRequest request) {
+            Group group = new Group(request.getName().trim(), request.getCurrency(), null);
+            group.setAliases(request.getAliases());
+            group.setOwnerId(request.getOwnerId());
+            
+            if (group.getInviteCode() == null || group.getInviteCode().isEmpty()) {
+                String randomCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                group.setInviteCode(randomCode);
+            }
+            
+            Group savedGroup = groupRepository.save(group);
 
+            // Control de nombres únicos sin distinción de mayúsculas
+            Set<String> registeredNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
+            // 1. Registrar al propietario: alias="Yo", y el deviceId es el UUID del request
+            if (group.getOwnerId() != null && !group.getOwnerId().isBlank()) {
+                String ownerAlias = "Yo";
+                registeredNames.add(ownerAlias);
+                groupMemberRepository.save(new GroupMember(ownerAlias, group.getOwnerId(), true, savedGroup));
+            }
+
+            // 2. Registrar los demás participantes (alias ingresados) evitando duplicados
+            if (group.getAliases() != null) {
+                group.getAliases().stream()
+                        .map(String::trim)
+                        .filter(alias -> !alias.isEmpty())
+                        .filter(alias -> registeredNames.add(alias))
+                        .forEach(alias -> groupMemberRepository.save(new GroupMember(alias, null, false, savedGroup)));
+            }
+
+            return savedGroup;
+        }
+   
     @GetMapping("/invite/{inviteCode}")
     public Group getGroupByInviteCode(@PathVariable String inviteCode) {
         return groupRepository.findByInviteCode(inviteCode)
