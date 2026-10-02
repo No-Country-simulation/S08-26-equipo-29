@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import DeudasView from './pages/DeudasView';
 import './pages/DeudasView.css';
 import { getGroups, createGroup, getGroupByInviteCode, getGroupMembers, joinGroup, removeMember, getExpenses, createExpense, getGroupBalances, settlePayment } from './services/api';
+import { getPaidPayments, removePaidPayment, savePaidPayment } from './services/paidPayments';
 import { clearStoredGroups, findStoredGroup, getStoredGroups, saveStoredGroups, upsertStoredGroup } from './services/groupStorage';
 import { clearStartedPayment, getStartedPayments, keepStartedPaymentsOf, markPaymentStarted } from './services/startedPayments';
 import { copyToClipboard } from './utils/clipboard';
@@ -127,8 +128,21 @@ const personalDebts = (summary, myAlias, startedPayments) => (summary.debts || [
     };
   });
 
+const personalPaidPayments = (payments, myAlias) => payments
+  .filter((payment) => payment.debtor === myAlias || payment.creditor === myAlias)
+  .map((payment) => {
+    const owedByMe = payment.debtor === myAlias;
+    return {
+      ...payment,
+      owedByMe,
+      otherName: memberLabel(owedByMe ? payment.creditor : payment.debtor, myAlias),
+      status: 'PAID',
+    };
+  });
+
 function DeudasTab({ groupId, refreshKey, myAlias, membersLoaded }) {
   const [summary, setSummary] = useState(null);
+  const [paidPayments, setPaidPayments] = useState([]);
   const [startedPayments, setStartedPayments] = useState(() => getStartedPayments(groupId));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -136,11 +150,15 @@ function DeudasTab({ groupId, refreshKey, myAlias, membersLoaded }) {
   const loadDebts = async () => {
     setLoadError('');
     try {
-      const nextSummary = await getGroupBalances(groupId);
+      const [nextSummary, nextPaidPayments] = await Promise.all([
+        getGroupBalances(groupId),
+        getPaidPayments(groupId),
+      ]);
       const currentDebtIds = (nextSummary.debts || []).map(debtId);
       keepStartedPaymentsOf(groupId, currentDebtIds);
       setStartedPayments((previous) => new Set([...previous, ...getStartedPayments(groupId)].filter((id) => currentDebtIds.includes(id))));
       setSummary(nextSummary);
+      setPaidPayments(nextPaidPayments);
     } catch {
       setLoadError('No pudimos cargar las deudas. Revisa tu conexión e intenta de nuevo.');
     } finally {
@@ -168,16 +186,27 @@ function DeudasTab({ groupId, refreshKey, myAlias, membersLoaded }) {
     setStartedPayments((previous) => new Set(previous).add(debt.id));
   };
 
-  const handleMarkAsPaid = async (debt) => {
+  const handleMarkAsPaid = async (debt, proofImage) => {
+    const payment = {
+      ...debt,
+      id: `paid-${Date.now()}-${crypto.randomUUID()}`,
+      status: 'PAID',
+      proofImage,
+      closedAt: new Date().toISOString(),
+    };
+    const storedPayment = await savePaidPayment(groupId, payment);
+
     try {
       await settlePayment(groupId, debt);
     } catch (error) {
+      await removePaidPayment(groupId, storedPayment.id).catch(() => {});
       // Si el servidor la rechazó (p. ej. otra persona ya la saldó), la lista mostrada quedó desactualizada
       if (error.status) await loadDebts();
       throw error;
     }
     clearStartedPayment(groupId, debt.id);
     await loadDebts();
+    return storedPayment;
   };
 
   if (loading || !membersLoaded) return <div className="card p-4">Cargando deudas...</div>;
@@ -190,7 +219,14 @@ function DeudasTab({ groupId, refreshKey, myAlias, membersLoaded }) {
     );
   }
 
-  return <DeudasView debts={debts} emptyState={debtsEmptyState(summary)} onStartPayment={handleStartPayment} onMarkAsPaid={handleMarkAsPaid} />;
+  return (
+    <DeudasView
+      debts={[...debts, ...personalPaidPayments(paidPayments, myAlias)]}
+      emptyState={debtsEmptyState(summary)}
+      onStartPayment={handleStartPayment}
+      onMarkAsPaid={handleMarkAsPaid}
+    />
+  );
 }
 
 function HomeView() {
@@ -300,7 +336,7 @@ getGroups(currentUserId)
   
 
   const joinByCodeButton = (
-    <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+    <button type="button" className="splitflow-link-button" onClick={handleJoinClick}>
       Únete a un grupo
     </button>
   );
@@ -443,7 +479,9 @@ return (
               Nuevo grupo
             </Button>
             
-            <p>¿Tienes un código de invitación? <button
+
+            <p>¿Tienes un código de invitación?<button
+
             type="button"
             className="splitflow-link-button"
             onClick={handleJoinClick}>
@@ -1199,13 +1237,6 @@ function JoinGroupView() {
     getGroupByInviteCode(inviteCode)
       .then((groupData) => getGroupMembers(groupData.id).then((members) => [groupData, members]))
       .then(([groupData, members]) => {
-        // Quien ya participa con este dispositivo entra directo, sin unirse una segunda vez
-        const myDeviceId = localStorage.getItem('splitflow.userId');
-        if (myDeviceId && members.some((member) => member.deviceId === myDeviceId)) {
-          rememberGroup(groupData, members);
-          navigate(`/group/${groupData.id}`, { replace: true });
-          return;
-        }
         setGroup(groupData);
         setGroupMembers(members);
         setAvailableAliases(members.filter((member) => !member.active));
@@ -1288,6 +1319,124 @@ function JoinGroupView() {
           <button className="primary-button w-100" type="submit" disabled={isGroupFull || isJoining || (!selectedAlias && !customAlias.trim())}>{isJoining ? 'Uniéndote...' : 'Unirme al grupo'}</button>
         </form>
       </section>
+      </div>
+    </main>
+  );
+}
+
+function LegacyInviteJoinView() {
+  const { inviteCode: routeCode } = useParams();
+  const navigate = useNavigate();
+  const [group, setGroup] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [availableAliases, setAvailableAliases] = useState([]);
+  const [selectedAlias, setSelectedAlias] = useState('');
+  const [customAlias, setCustomAlias] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    const inviteCode = parseInviteCode(routeCode);
+
+    getGroupByInviteCode(inviteCode)
+      .then((groupData) => getGroupMembers(groupData.id).then((members) => [groupData, members]))
+      .then(([groupData, members]) => {
+        setGroup(groupData);
+        setGroupMembers(members);
+        setAvailableAliases(members.filter((member) => !member.active));
+      })
+      .catch((loadError) => setError(loadError.status === 404
+        ? 'No encontramos este grupo o el enlace ya no es válido.'
+        : loadError.message))
+      .finally(() => setLoading(false));
+  }, [navigate, routeCode]);
+
+  const handleJoin = async (event) => {
+    event.preventDefault();
+    if (isJoining) return;
+
+    const alias = selectedAlias || customAlias.trim();
+    if (!alias) {
+      setError('Debes ingresar un nombre para unirte');
+      return;
+    }
+
+    if (!selectedAlias && isReservedName(alias)) {
+      setError('Ese nombre está reservado. Elige otro.');
+      return;
+    }
+
+    setIsJoining(true);
+    setError('');
+
+    try {
+      const deviceId = localStorage.getItem('splitflow.userId') || crypto.randomUUID();
+      localStorage.setItem('splitflow.userId', deviceId);
+
+      const createdMember = await joinGroup(group.id, { alias, deviceId });
+      rememberGroup(group, [...groupMembers, createdMember]);
+      navigate(`/group/${group.id}`);
+    } catch (joinError) {
+      setError(joinError.message);
+      setIsJoining(false);
+    }
+  };
+
+  if (loading) {
+    return <main className="splitflow-home-shell"><div className="splitflow-join-view"><p>Cargando invitación...</p></div></main>;
+  }
+
+  if (!group) {
+    return <main className="splitflow-home-shell"><div className="splitflow-join-view"><p className="text-danger">{error}</p></div></main>;
+  }
+
+  const inviteCode = parseInviteCode(routeCode);
+  const hasPendingAliases = availableAliases.length > 0;
+  const isGroupFull = groupMembers.length >= MAX_GROUP_MEMBERS && !hasPendingAliases;
+  const inviteUrl = `${window.location.origin}/join/${inviteCode}`;
+
+  const shareInvite = async () => {
+    setNotice(await copyToClipboard(inviteUrl) ? 'Enlace copiado.' : `Copia y comparte este enlace: ${inviteUrl}`);
+  };
+
+  return (
+    <main className="splitflow-home-shell">
+      <div className="splitflow-join-view">
+        <section className="card invite-qr-card mb-4">
+          <p className="eyebrow text-uppercase fw-bold mb-1">Invitación a SplitFlow</p>
+          <h1 className="h3 fw-bold mb-2">Únete a {group.name}</h1>
+          <InviteQr value={inviteUrl} />
+          <span className="form-note">Código de invitación</span>
+          <strong className="invite-code">{inviteCode}</strong>
+          <Button variant="secondary" size="small" className="mt-3" onClick={shareInvite}>Compartir enlace</Button>
+        </section>
+
+        <section className="card identity-card">
+          <p className="eyebrow text-uppercase fw-bold mb-2">Tu identidad</p>
+          <h2 className="h4 mb-2">¿Quién de estos sos tú?</h2>
+          <p className="text-secondary mb-4">Elige tu perfil para entrar al grupo.</p>
+          {isGroupFull && <div className="capacity-alert" role="alert"><strong>Grupo completo</strong><span>Este grupo alcanzó el límite de {MAX_GROUP_MEMBERS} participantes.</span></div>}
+          <form onSubmit={handleJoin}>
+            {hasPendingAliases && !isGroupFull ? (
+              <div className="identity-grid">
+                {availableAliases.map((member) => (
+                  <label className={`identity-option ${selectedAlias === member.alias ? 'selected' : ''}`} key={member.id}>
+                    <input type="radio" name="identity" value={member.alias} checked={selectedAlias === member.alias} onChange={(event) => setSelectedAlias(event.target.value)} />
+                    <span className="avatar">{initials(member.alias)}</span>
+                    <span><strong>{member.alias}</strong><small>Participante invitado</small></span>
+                  </label>
+                ))}
+              </div>
+            ) : !isGroupFull ? (
+              <input className="form-control mb-3" maxLength={40} value={customAlias} onChange={(event) => setCustomAlias(event.target.value)} placeholder="Ej. Carlos" autoFocus />
+            ) : null}
+            {notice && <p className="text-success" role="status">{notice}</p>}
+            {error && <p className="text-danger" role="alert">{error}</p>}
+            <button className="primary-button w-100" type="submit" disabled={isGroupFull || isJoining || (!selectedAlias && !customAlias.trim())}> {isJoining ? 'Uniéndote...' : 'Unirme al grupo'} </button>
+          </form>
+        </section>
       </div>
     </main>
   );

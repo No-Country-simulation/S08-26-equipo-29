@@ -327,7 +327,8 @@ button, input, select { font: inherit; }
     margin-top: 10px;
     text-decoration: none;
     color: var(--color-primary);
-    
+    border: none;
+    background: none;
 }
 .splitflow-Inicio{
 padding: 15px;
@@ -496,7 +497,31 @@ padding: 15px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding-top: 6px;
+  padding-right: 4px;
+  margin-right: -4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--splitflow-blue) transparent;
+}
+
+.splitflow-create-form__body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.splitflow-create-form__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.splitflow-create-form__body::-webkit-scrollbar-thumb {
+  background-color: var(--splitflow-violet-soft);
+  border-radius: 999px;
+}
+
+.splitflow-create-form__body:hover::-webkit-scrollbar-thumb {
+  background-color: var(--splitflow-blue);
 }
 
 .splitflow-field {
