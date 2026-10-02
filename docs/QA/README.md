@@ -54,7 +54,7 @@ He estructurado el proceso de QA en tres fases clave dentro de este repositorio.
 * [📋 **Plan de Pruebas (test-plan.md)**](./test-plan.md): Define el alcance de la prueba, los entornos validados (Mobile/Desktop) y la estrategia general de calidad.
 * [🧪 **Casos de Prueba (test-cases.md)**](./test-cases.md): Detalla los escenarios diseñados paso a paso, incluyendo flujos ideales de división equitativa y flujos alternativos (exclusión de participantes).
 * [📊 **Reporte de Ejecución y Bugs (test-report.md)**](./test-report.md): Muestra las métricas finales de la ejecución, el estado de los casos y el reporte detallado del bug de redondeo decimal hallado en los balances.
-* [📊 **Análisis de Incidencia Bugs (SplitFlow_Analisis_Incidencia.docx)**](./SplitFlow_Analisis_Incidencia.docx): El detalle del BUG-004, y los tres cambios propuestos para la documentación de QA.
+* [📊 **Análisis de Incidencia Bugs (analisis de incidencia.md)**](./analisis de incidencia.md): El detalle del BUG-004, y los tres cambios propuestos para la documentación de QA.
 ---
 
 
