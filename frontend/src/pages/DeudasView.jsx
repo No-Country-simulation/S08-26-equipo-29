@@ -1,144 +1,301 @@
 import React, { useEffect, useState } from 'react';
 import Avatar from '../components/Avatar';
-import { formatCurrency } from '../utils/format';
 import './DeudasView.css';
+import SinDeudas from '../public/Sindeudas.svg';
+import exitoRegistro from '../public/exitoRegistro.svg';
+
+const createProofPreview = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error('No se pudo procesar la imagen.'));
+    image.onload = () => {
+      const maxDimension = 1200;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.naturalWidth * scale);
+      canvas.height = Math.round(image.naturalHeight * scale);
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('No se pudo procesar la imagen.'));
+        return;
+      }
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    image.src = String(reader.result || '');
+  };
+  reader.readAsDataURL(file);
+});
 
 const STATUS_META = {
   PENDING: { label: 'Pendiente', className: 'status-pending' },
   STARTED: { label: 'Pago iniciado', className: 'status-started' },
+  PAYMENT_SUBMITTED: { label: 'En revisión', className: 'status-started' },
   PAID: { label: 'Pagado', className: 'status-paid' },
 };
 
-const DEFAULT_EMPTY_STATE = { title: 'Sin deudas pendientes', message: 'No tienes deudas pendientes en este grupo' };
+const formatClosedDate = (value) => {
+  if (!value) return 'Fecha no registrada';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T12:00:00`)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Fecha no registrada';
+  return new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+};
 
-export default function DeudasView({ debts = [], emptyState = DEFAULT_EMPTY_STATE, onStartPayment, onMarkAsPaid }) {
+export default function DeudasView({ groupName = 'Viaje Melgar', debts = [], onMarkAsPaid }) {
   const [selectedDebt, setSelectedDebt] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('PENDING');
+  const [modalPhase, setModalPhase] = useState('upload');
   const [statusMap, setStatusMap] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const [proofMap, setProofMap] = useState({});
+  const [uploadedImage, setUploadedImage] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const [paymentNotice, setPaymentNotice] = useState(null);
+  const [screenMode, setScreenMode] = useState('list');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
 
   useEffect(() => {
     setStatusMap(Object.fromEntries((debts || []).map((debt) => [debt.id, debt.status || 'PENDING'])));
   }, [debts]);
 
-  const handleOpenConfirm = (debt, mode) => {
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedDebt(null);
+    setUploadedImage('');
+    setUploadError('');
+    setModalPhase('upload');
+  };
+
+  const handleOpenConfirm = (debt) => {
     setSelectedDebt(debt);
-    setModalMode(mode);
+    setModalPhase('upload');
+    setUploadedImage('');
+    setUploadError('');
     setShowModal(true);
   };
 
-  const closeModal = () => {
-    if (isSubmitting) return;
-    setShowModal(false);
-    setSelectedDebt(null);
-    setModalMode('PENDING');
-    setSubmitError('');
-  };
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const handleConfirmPay = async () => {
-    if (!selectedDebt || isSubmitting) return;
-
-    if (modalMode === 'STARTED') {
-      onStartPayment?.(selectedDebt);
-      setStatusMap((current) => ({ ...current, [selectedDebt.id]: 'STARTED' }));
-      closeModal();
+    if (!file.type.startsWith('image/')) {
+      setUploadError('El comprobante debe ser una imagen.');
       return;
     }
 
-    if (modalMode === 'PAID' && onMarkAsPaid) {
-      setIsSubmitting(true);
-      setSubmitError('');
-      try {
-        await onMarkAsPaid(selectedDebt);
-        setStatusMap((current) => ({ ...current, [selectedDebt.id]: 'PAID' }));
-      } catch (error) {
-        setSubmitError(error.message || 'No pudimos registrar el pago. Intenta de nuevo.');
-        setIsSubmitting(false);
-        return;
-      }
-      setIsSubmitting(false);
+    try {
+      setUploadedImage(await createProofPreview(file));
+      setUploadError('');
+    } catch (error) {
+      setUploadError(error.message);
     }
-
-    closeModal();
   };
 
-  const confirmMessage = () => {
-    const amount = formatCurrency(selectedDebt.amount);
-    if (modalMode === 'STARTED') {
-      return `¿Deseas iniciar el pago de ${amount} a ${selectedDebt.otherName}? El flujo quedará marcado como “Pago iniciado”.`;
+  const handleUploadNext = () => {
+    if (!uploadedImage) {
+      setUploadError('Debes subir la imagen del comprobante para continuar.');
+      return;
     }
-    return selectedDebt.owedByMe
-      ? `¿Confirmas que ya pagaste ${amount} a ${selectedDebt.otherName}? Esta acción no se puede deshacer.`
-      : `¿Confirmas que ${selectedDebt.otherName} ya te pagó ${amount}? Esta acción no se puede deshacer.`;
+
+    setUploadError('');
+    setModalPhase('confirm');
   };
+
+  const handleConfirmPay = async () => {
+    if (!selectedDebt) return;
+    if (!uploadedImage) {
+      setUploadError('No hay un comprobante para registrar el pago.');
+      return;
+    }
+
+    setIsSavingPayment(true);
+    setUploadError('');
+    try {
+      const registeredDebt = onMarkAsPaid ? await onMarkAsPaid(selectedDebt, uploadedImage) : null;
+      const paidDebtId = registeredDebt?.id || selectedDebt.id;
+
+      setStatusMap((current) => ({ ...current, [paidDebtId]: 'PAID' }));
+      setProofMap((current) => ({ ...current, [paidDebtId]: uploadedImage }));
+      setPaymentNotice({
+        message: `¡Registro exitoso! El pago de ${formatCurrency(selectedDebt.amount)} a ${selectedDebt.creditorName || selectedDebt.creditor} quedó registrado.`,
+        image: uploadedImage,
+      });
+      setShowModal(false);
+      setSelectedDebt(null);
+      setUploadedImage('');
+      setModalPhase('upload');
+      setScreenMode('success');
+    } catch (error) {
+      setUploadError(error.message || 'No se pudo registrar el pago. Intenta de nuevo.');
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
+  const handleViewResult = () => {
+    setScreenMode('result');
+  };
+
+  const formatCurrency = (amount) => `$${Number(amount).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="splitflow-container">
-      <section className="section-title">
-        <h2>TUS DEUDAS — VISTA PERSONAL</h2>
-      </section>
-
-      {debts.length === 0 ? (
-        <div className="empty-state-card">
-          {emptyState.showBadge !== false && <div className="success-icon-badge" aria-hidden="true">✓</div>}
-          <h3>{emptyState.title}</h3>
-          <p className="empty-subtitle">{emptyState.message}</p>
+      {screenMode === 'success' ? (
+        <div className="payment-success-screen" role="status">
+          <div className="payment-success-screen__circle">
+            <img src={exitoRegistro} alt="Registro exitoso" />
+          </div>
+          <h3>¡Registro exitoso!</h3>
+          <button type="button" className="btn-primary success-action" onClick={handleViewResult}>
+            Ver resultado
+          </button>
         </div>
       ) : (
-        <div className="debts-list">
-          {debts.map((debt) => {
-            const currentStatus = statusMap[debt.id] || debt.status || 'PENDING';
-            const statusInfo = STATUS_META[currentStatus] || STATUS_META.PENDING;
+        <>
+          {paymentNotice && screenMode === 'result' && (
+            <div className="payment-success-banner" role="status">
+              {paymentNotice.image && <img src={paymentNotice.image} alt="Comprobante registrado" className="success-proof-image" />}
+              <span>{paymentNotice.message}</span>
+            </div>
+          )}
 
-            return (
-              <article key={debt.id} className="debt-card">
-                <div className="debt-info">
-                  <Avatar name={debt.otherName} size="small" />
-                  <div>
-                    <div className="debt-main-text">
-                      {debt.owedByMe ? `Debes a ${debt.otherName}` : `${debt.otherName} te debe`}
+          {debts.length === 0 ? (
+            <div className="empty-state-card">
+              <img src={SinDeudas} alt="Sin deudas" />
+              <h3>No tienes deudas <span className="splitflow-link-button">en este grupo</span></h3>
+              <p className="empty-subtitle">Si el grupo sigue con gastos activos, otras deudas pueden seguir en curso.</p>
+            </div>
+          ) : (
+            <div className="debts-list">
+              {debts.map((debt) => {
+                const currentStatus = statusMap[debt.id] || debt.status || 'PENDING';
+                const statusInfo = STATUS_META[currentStatus] || STATUS_META.PENDING;
+                const proofImage = proofMap[debt.id] || debt.proofImage;
+                const closedAt = debt.closedAt || new Date().toISOString();
+
+                return (
+                  <article key={debt.id} className="debt-card">
+                    <div className="debt-info">
+                      <Avatar name={debt.creditorName || debt.creditor || 'Usuario'} size="small" />
+                      <div>
+                        <div className="debt-main-text">Debes a {debt.creditorName || debt.creditor}</div>
+                        <span className={`status-pill ${statusInfo.className}`}>{statusInfo.label}</span>
+                      </div>
                     </div>
-                    <span className={`status-pill ${statusInfo.className}`}>{statusInfo.label}</span>
-                  </div>
-                </div>
-                <div className="debt-right">
-                  <span className="debt-amount">{formatCurrency(debt.amount)}</span>
-                  {debt.owedByMe && currentStatus === 'PENDING' && (
-                    <button className="btn-outline-pay" type="button" onClick={() => handleOpenConfirm(debt, 'STARTED')}>
-                      Iniciar pago
-                    </button>
-                  )}
-                  {(debt.owedByMe ? currentStatus === 'STARTED' : currentStatus !== 'PAID') && (
-                    <button className="btn-outline-pay btn-primary-soft" type="button" onClick={() => handleOpenConfirm(debt, 'PAID')}>
-                      Marcar como pagado
-                    </button>
-                  )}
-                  {currentStatus === 'PAID' && (
-                    <span className="paid-inline">Pagado</span>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                    <div className="debt-right">
+                      <span className="debt-amount">{formatCurrency(debt.amount)}</span>
+                      {currentStatus === 'PENDING' && (
+                        <button className="btn-outline-pay" type="button" onClick={() => handleOpenConfirm(debt)}>
+                          Informar pago
+                        </button>
+                      )}
+                      {currentStatus === 'STARTED' && (
+                        <button className="btn-outline-pay btn-primary-soft" type="button" onClick={() => handleOpenConfirm(debt)}>
+                          Informar pago
+                        </button>
+                      )}
+                      {currentStatus === 'PAYMENT_SUBMITTED' && (
+                        <span className="paid-inline status-review">En revisión</span>
+                      )}
+                      {currentStatus === 'PAID' && (
+                        <>
+                          <div className="paid-status-meta">
+                            <span className="paid-inline">Pagado</span>
+                            <time className="debt-closed-date" dateTime={closedAt}>
+                              {formatClosedDate(closedAt)}
+                            </time>
+                          </div>
+                          {proofImage ? (
+                            <img
+                              src={proofImage}
+                              alt="Vista previa del comprobante de pago"
+                              className="proof-thumbnail"
+                            />
+                          ) : (
+                            <span className="proof-unavailable">Comprobante no disponible</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {showModal && selectedDebt && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
           <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="payment-title">
-            <h3 id="payment-title">
-              {modalMode === 'STARTED' ? 'Confirmar inicio de pago' : 'Confirmar pago'}
-            </h3>
-            <p>{confirmMessage()}</p>
-            {submitError && <p className="text-danger small" role="alert">{submitError}</p>}
-            <div className="modal-actions">
-              <button className="btn-secondary" type="button" onClick={closeModal} disabled={isSubmitting}>Cancelar</button>
-              <button className="btn-primary" type="button" onClick={handleConfirmPay} disabled={isSubmitting}>
-                {isSubmitting ? 'Registrando...' : modalMode === 'STARTED' ? 'Iniciar pago' : 'Confirmar'}
-              </button>
+            <div className="modal-header">
+              <h3 id="payment-title">
+                {modalPhase === 'upload' ? 'Informar pago' : 'Confirmar pago'}
+              </h3>
+              <button className="modal-close-button" type="button" aria-label="Cerrar" onClick={closeModal}>×</button>
             </div>
+
+            {modalPhase === 'upload' ? (
+              <>
+                <p className="modal-description">
+                  Subí una imagen del comprobante para registrar el pago de {formatCurrency(selectedDebt.amount)} a {selectedDebt.creditorName || selectedDebt.creditor}.
+                </p>
+
+                <label className="upload-dropzone" htmlFor="payment-proof-upload">
+                  {uploadedImage ? (
+                    <img src={uploadedImage} alt="Comprobante adjunto" className="upload-preview" />
+                  ) : (
+                    <span className="upload-placeholder">
+                      <span className="upload-icon" aria-hidden="true">↑</span>
+                      <span>Cargar comprobante</span>
+                    </span>
+                  )}
+                </label>
+                <input
+                  id="payment-proof-upload"
+                  className="upload-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+
+                {uploadError && <p className="upload-error">{uploadError}</p>}
+
+                <div className="modal-actions">
+                  <button className="btn-secondary" type="button" onClick={closeModal}>Cancelar</button>
+                  <button className="btn-primary" type="button" onClick={handleUploadNext}>Continuar</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="proof-summary">
+                  <p>Comprobante adjunto</p>
+                  <img src={uploadedImage} alt="Previsualización del comprobante" className="proof-preview" />
+                </div>
+
+                <p className="modal-description">
+                  ¿Confirmás que ya realizaste el pago de {formatCurrency(selectedDebt.amount)} a {selectedDebt.creditorName || selectedDebt.creditor}?
+                </p>
+
+                {uploadError && <p className="upload-error" role="alert">{uploadError}</p>}
+
+                <div className="modal-actions">
+                  <button className="btn-secondary" type="button" onClick={() => setModalPhase('upload')}>Volver</button>
+                  <button className="btn-primary" type="button" onClick={handleConfirmPay} disabled={isSavingPayment}>
+                    {isSavingPayment ? 'Registrando...' : 'Registrar pago'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
