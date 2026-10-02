@@ -1,32 +1,34 @@
+Markdown
 # SplitFlow - Frontend
 
 Interfaz de usuario para **SplitFlow**, una plataforma web diseñada para gestionar y dividir gastos compartidos entre amigos, parejas o grupos de viaje de forma sencilla y transparente.
 
-## 🚀 Tecnologías Principales
+## 🚀 Enlace en Producción
+- **Frontend App:** [https://splitflow-frontend.onrender.com/](https://splitflow-frontend.onrender.com/)
+
+## 🛠️ Tecnologías Principales
 
 - **React** con **Vite** para un entorno de desarrollo rápido y HMR fluido.
-- **Axios** (o Fetch API) para la comunicación con el backend REST.
-- **Bootstrap** / Tailwind (según preferencia) para el diseño responsivo.
+- **Axios** para la comunicación con el backend REST.
+- **Bootstrap** / Tailwind para el diseño responsivo.
 
-## 🛠️ Configuración y Ejecución Local
+## 💻 Configuración y Ejecución Local
 
-1. **Instalar dependencias:**
+1. **Instalar dependencias y ejecutar:**
    ```bash
    npm install
    npm run dev
+📱 Flujos Disponibles
+Home con UUID anónimo y creación de grupos.
 
-## Flujos disponibles
+Invitación y unión por alias o nombre propio en /join/:inviteCode.
 
-- Home con UUID anonimo y creacion de grupos.
-- Invitacion y union por alias o nombre propio en `/join/:inviteCode`.
-- Gastos con participantes, division igualitaria o por monto especifico.
-- Saldos expandibles con desglose por gasto.
-- Deudas direccionales, confirmacion de pago y cierre total del grupo.
+Gastos con participantes, división igualitaria o por monto específico.
 
-## Scripts
+Saldos expandibles con desglose por gasto.
 
-```bash
+Deudas direccionales, confirmación de pago y cierre total del grupo.
+
+📜 Scripts
+Bash
 npm run dev
-npm run build
-npm run lint
-```
