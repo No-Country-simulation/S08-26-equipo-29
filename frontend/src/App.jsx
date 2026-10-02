@@ -336,7 +336,7 @@ getGroups(currentUserId)
   
 
   const joinByCodeButton = (
-    <button type="button" className="splitflow-link-button" onClick={handleJoinClick} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+    <button type="button" className="splitflow-link-button" onClick={handleJoinClick}>
       Únete a un grupo
     </button>
   );
@@ -479,7 +479,7 @@ return (
               Nuevo grupo
             </Button>
             
-            <p>¿Tienes un código de invitación? <button
+            <p>¿Tienes un código de invitación?<button
             type="button"
             className="splitflow-link-button"
             onClick={handleJoinClick}>
