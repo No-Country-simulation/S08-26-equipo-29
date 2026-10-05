@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Avatar from '../components/Avatar';
 import './DeudasView.css';
-import SinDeudas from '../public/Sindeudas.svg';
+
+import SinDeudas from "/Sindeudas.svg";
 import exitoRegistro from '../public/exitoRegistro.svg';
 
 const createProofPreview = (file) => new Promise((resolve, reject) => {
