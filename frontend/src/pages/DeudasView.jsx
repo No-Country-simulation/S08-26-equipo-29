@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Avatar from '../components/Avatar';
 import './DeudasView.css';
-const SinDeudas = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M20 6L9 17l-5-5'/></svg>";
-const exitoRegistro = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M20 6L9 17l-5-5'/></svg>";
+import SinDeudas from './Sindeudas.svg';
+import exitoRegistro from './exitoRegistro.svg';
 const createProofPreview = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
